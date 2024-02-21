@@ -1,0 +1,28 @@
+*.pyc
+*.so
+*.egg-info
+*.whl
+.DS_Store
+.mypy_cache/
+.pytype/
+.idea
+.vscode
+.envrc
+__pycache__
+.pytest_cache
+
+# Sphinx
+/docs/build/
+/docs/_autosummary/
+/docs/make.bat
+/docs/Makefile
+
+/test/outputs/
+/test/data/collate/
+
+# virtualenv/venv directories
+/venv/
+/bin/
+/include/
+/lib/
+/share/
