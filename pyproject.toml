@@ -28,7 +28,7 @@ classifiers = [
 ]
 
 dependencies = [ 
-  "https://github.com/scbirlab/carabiner/archive/refs/tags/v0.0.1-alpha.zip",
+  "carabiner @ https://github.com/scbirlab/carabiner/archive/refs/tags/v0.0.1-alpha.zip",
   "datamol",
   "descriptastorus",
   "nemony",
