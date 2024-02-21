@@ -4,6 +4,7 @@ from typing import Any, Callable, List, Optional, TextIO, Tuple, Union
 
 from collections import defaultdict
 from functools import partial
+from io import TextIOWrapper
 from string import printable
 from tempfile import NamedTemporaryFile
 from xml.etree import ElementTree
