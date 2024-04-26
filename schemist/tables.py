@@ -44,21 +44,20 @@ def converter(df: DataFrame,
 
     prefix = prefix or ''  
     options = options or {}
-    
-    converters = {f"{prefix}{rep_out}": partial(convert_string_representation,
-                                                output_representation=rep_out,
-                                                input_representation=input_representation,
-                                                **options)
-                  for rep_out in cast(output_representation, to=list)}
 
     column_values = df[column]
 
-    converted = {col: cast(f(column_values), to=list) 
-                 for col, f in converters.items()}
-
+    output_representation = cast(output_representation, to=list)
+    converters = convert_string_representation(column_values,
+                                               output_representation=output_representation,
+                                               input_representation=input_representation,
+                                               **options)
+    converted = {f"{prefix}{conversion_name}": cast(conversion, to=list) 
+                 for conversion_name, conversion in converters.items()}
+                 
     df = df.assign(**converted)
 
-    return  _get_error_tally(df, list(converters)), df
+    return  _get_error_tally(df, list(converted)), df
 
 
 def cleaner(df: DataFrame, 

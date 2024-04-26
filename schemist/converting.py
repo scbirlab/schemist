@@ -276,8 +276,8 @@ def _mol2x(mols: Union[Iterable[Mol], Mol],
 
 def convert_string_representation(strings: Union[Iterable[str], str],
                                   input_representation: str = 'smiles', 
-                                  output_representation: str = 'smiles', 
-                                  **kwargs) -> Union[str, None, Iterable[Union[str, None]]]:
+                                  output_representation: Union[Iterable[str], str] = 'smiles', 
+                                  **kwargs) -> Union[str, None, Iterable[Union[str, None]], Dict[str, Union[str, None, Iterable[Union[str, None]]]]]:
     
     """Convert between string representations of chemical structures.
     
@@ -285,7 +285,15 @@ def convert_string_representation(strings: Union[Iterable[str], str],
 
     mols = _x2mol(strings, input_representation)
     # print_err(mols)
-    outstrings = _mol2x(mols, output_representation, **kwargs)
+
+    if not isinstance(output_representation, str) and isinstance(output_representation, Iterable):
+        mols = cast(mols, to=list)
+        outstrings = {rep_name: _mol2x(mols, rep_name, **kwargs) 
+                      for rep_name in output_representation}
+    elif isinstance(output_representation, str):
+        outstrings = _mol2x(mols, output_representation, **kwargs) 
+    else:
+        raise TypeError(f"Specified output representation must be a string or iterable")
     # print_err(outstrings)
 
     return outstrings
