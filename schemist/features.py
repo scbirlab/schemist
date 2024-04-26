@@ -122,7 +122,7 @@ def calculate_fingerprints(strings: Union[Iterable[str], str],
         
     else:
         
-        fingerprints = [np.array(int(digit) for digit in fp_string) 
+        fingerprints = [np.array([int(digit) for digit in fp_string]) 
                         if fp_string is not None 
                         else (-np.ones((fp_generator.GetOptions().fpSize, )))
                         for fp_string in fp_strings]
