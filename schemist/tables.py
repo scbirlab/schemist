@@ -18,6 +18,17 @@ from .generating import sample_peptides_in_length_range, react
 from .splitting import split
 from .typing import DataSplits
 
+def _get_column_values(df: DataFrame, 
+                       column: Union[str, List[str]]):
+
+    try:
+        column_values = df[column]
+    except KeyError:
+        raise KeyError(f"Column {column} does not appear to be in the data: {', '.join(df.columns)}")
+    else:
+        return column_values
+
+
 def _get_error_tally(df: DataFrame, 
                      cols: Union[str, List[str]]) -> Dict[str, int]:
 
@@ -45,7 +56,7 @@ def converter(df: DataFrame,
     prefix = prefix or ''  
     options = options or {}
 
-    column_values = df[column]
+    column_values = _get_column_values(df, column)
 
     output_representation = cast(output_representation, to=list)
     converters = convert_string_representation(column_values,
@@ -79,7 +90,7 @@ def cleaner(df: DataFrame,
     prefix = prefix or ''
     new_column = f"{prefix}{column}"
 
-    df = df.assign(**{new_column: lambda x: cleaner(x[column])})
+    df = df.assign(**{new_column: lambda x: cast(cleaner(_get_column_values(x, column)), to=list)})
 
     return _get_error_tally(df, new_column), df
 
@@ -101,7 +112,7 @@ def featurizer(df: DataFrame,
         ids = cast(ids, to=list)
 
     feature_df = calculate_feature(feature_type=feature_type,
-                                   strings=df[column], 
+                                   strings=_get_column_values(df, column), 
                                    prefix=prefix,
                                    input_representation=input_representation)
     
@@ -118,7 +129,7 @@ def assign_groups(df: DataFrame,
                   input_representation: str = 'smiles',
                   *args, **kwargs) -> Tuple[Dict[str, Tuple[int]], DataFrame]:
     
-    group_idx = grouper(strings=df[column], 
+    group_idx = grouper(strings=_get_column_values(df, column), 
                         input_representation=input_representation,
                         *args, **kwargs)
     
@@ -152,7 +163,7 @@ def splitter(df: DataFrame,
     """
     
     split_idx = split(split_type=split_type,
-                      strings=df[column], 
+                      strings=_get_column_values(df, column), 
                       input_representation=input_representation,
                       *args, **kwargs)
     
@@ -174,7 +185,7 @@ def reactor(df: DataFrame,
     reactors = {col: partial(react, reaction=col)
                 for col in cast(reaction, to=list)}
 
-    column_values = df[column]
+    column_values = _get_column_values(df, column)
 
     new_columns = {f"{prefix}{col}": list(_reactor(strings=column_values, *args, **kwargs))
                    for col, _reactor in reactors.items()}
