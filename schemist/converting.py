@@ -12,7 +12,8 @@ from carabiner.itertools import batched
 from datamol import sanitize_smiles
 import nemony as nm
 from pandas import DataFrame
-from rdkit.Chem import (Mol, MolFromInchi, MolFromHELM, MolFromSequence, 
+from rdkit.Chem import (Crippen, Descriptors, rdMolDescriptors,
+                        Mol, MolFromInchi, MolFromHELM, MolFromSequence, 
                         MolFromSmiles, MolToInchi, MolToInchiKey, 
                         MolToSmiles)
 from rdkit.Chem.Scaffolds.MurckoScaffold import MurckoScaffoldSmiles
@@ -94,6 +95,14 @@ def _selfies2mol(s: str) -> Mol:
 
 @vectorize
 @return_none_on_error
+def _mol2clogp(m: Mol,
+               **kwargs) -> float:
+
+    return Crippen.MolLogP(m)
+
+
+@vectorize
+@return_none_on_error
 def _mol2nonstandard_inchikey(m: Mol,
                               **kwargs) -> str:
 
@@ -165,6 +174,38 @@ def _mol2mnemonic(m: Mol,
     nonstandard_inchikey = _mol2nonstandard_inchikey(m)
 
     return nm.encode(nonstandard_inchikey)
+
+
+@vectorize
+@return_none_on_error
+def _mol2mwt(m: Mol,
+             **kwargs) -> float:
+
+    return Descriptors.ExactMolWt(m)
+
+
+@vectorize
+@return_none_on_error
+def _mol2min_charge(m: Mol,
+                    **kwargs) -> float:
+
+    return Descriptors.MinPartialCharge(m)
+
+
+@vectorize
+@return_none_on_error
+def _mol2max_charge(m: Mol,
+                    **kwargs) -> float:
+
+    return Descriptors.MaxPartialCharge(m)
+
+
+@vectorize
+@return_none_on_error
+def _mol2tpsa(m: Mol,
+              **kwargs) -> float:
+
+    return rdMolDescriptors.CalcTPSA(m)
 
 
 def _mol2pubchem(m: Union[Mol, Iterable[Mol]],
@@ -247,7 +288,12 @@ _TO_FUNCTIONS = {"smiles": _mol2isomeric_canonical_smiles,
                  "permuted_smiles": _mol2random_smiles,
                  "pubchem_id": _mol2pubchem_id,
                  "pubchem_name": _mol2pubchem_name, 
-                 "cactus_name": _mol2cactus_name}
+                 "cactus_name": _mol2cactus_name,
+                 "clogp": _mol2clogp,
+                 "tpsa": _mol2tpsa,
+                 "mwt": _mol2mwt,
+                 "max_charge": _mol2min_charge,
+                 "min_charge": _mol2max_charge}
 
 _FROM_FUNCTIONS = {"smiles": _smiles2mol,
                    "selfies": _selfies2mol,
