@@ -1,6 +1,6 @@
 """Tools for processing tabular data."""
 
-from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 from functools import partial
 
 try:
@@ -8,8 +8,7 @@ try:
 except ImportError:
     from carabiner.itertools import batched
 
-from carabiner.cast import cast, clist
-from carabiner import print_err
+from carabiner.cast import cast
 from pandas import DataFrame, concat
 
 from .cleaning import clean_smiles, clean_selfies
@@ -44,6 +43,7 @@ def converter(df: DataFrame,
     """
 
     prefix = prefix or ''  
+    options = options or {}
     
     converters = {f"{prefix}{rep_out}": partial(convert_string_representation,
                                                 output_representation=rep_out,
@@ -193,7 +193,7 @@ def _peptide_table(max_length: int,
                    suffix: str = '',
                    generator: bool = False, 
                    batch_size: int = 1000,
-                   *args, **kwargs) -> Union[DataFrame, Generator]:
+                   *args, **kwargs) -> Union[DataFrame, Iterable]:
     
     min_length = min_length or max_length
 
@@ -204,13 +204,9 @@ def _peptide_table(max_length: int,
                                                *args, **kwargs)
     
     if generator:
-    
-        for peps in batched(peptides, batch_size):
 
-            peps = [f"{prefix}{pep}{suffix}" 
-                    for pep in peps]
-
-            yield DataFrame(dict(peptide_sequence=peps))
+        return (DataFrame(dict(peptide_sequence=[f"{prefix}{pep}{suffix}" for pep in peps]))
+                for peps in batched(peptides, batch_size))
 
     else:
 

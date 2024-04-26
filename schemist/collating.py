@@ -66,8 +66,10 @@ def _column_mapper(df: DataFrame,
                     raise e
 
             else:
-
-                new_df[new_col] = x[old_col].copy()
+                try:
+                    new_df[new_col] = x[old_col].copy()
+                except KeyError:
+                    raise KeyError(f"Column {old_col} mapped to {new_col} is not in the input data: " + ", ".join(x.columns))
 
         return new_df
        
@@ -161,7 +163,7 @@ def collate_inventory(catalog: DataFrame,
         column_mapper, mapped_cols = _column_mapper(filename_df, 
                                                     nongroup_columns)
 
-        reader = FILE_READERS[this_filetype]
+        reader = FILE_READERS.get(this_filetype, read_table)
 
         for filename in these_filenames:
             
@@ -190,8 +192,8 @@ def collate_inventory(catalog: DataFrame,
                                  input_file_format=this_filetype,
                                  input_string_representation=this_representation,
                                  plate_id=lambda x: x['plate_id'].astype(str),
-                                 plate_loc=lambda x: x['library_name'].str.cat([x['compound_collection'], x['plate_id'], x['well_id']], sep=':'),
-                                 canonical_smiles=lambda x: this_converter(x[catalog_smiles_column]),
+                                 plate_loc=lambda x: x['library_name'].str.cat([x['compound_collection'], x['plate_id'].astype(str), x['well_id'].astype(str)], sep=':'),
+                                 canonical_smiles=lambda x: list(this_converter(x[catalog_smiles_column])),
                                  is_valid_smiles=lambda x: [s is not None for s in x['canonical_smiles']]))
                 
             report.update({"invalid SMILES": (~this_data['is_valid_smiles']).sum(), 
@@ -207,7 +209,7 @@ def collate_inventory(catalog: DataFrame,
                                          output_representation='id',
                                          options=dict(n=id_n_digits,
                                                       prefix=id_prefix))
-                this_data = this_data.assign(**{id_column_name: lambda x: this_converter(x['canonical_smiles'])})
+                this_data = this_data.assign(**{id_column_name: lambda x: list(this_converter(x['canonical_smiles']))})
            
             loaded_dataframes.append(this_data)
 

@@ -79,7 +79,7 @@ def _inchi2mol(s: str) -> Mol:
                         removeHs=True)
 
 @vectorize
-# @return_none_on_error
+@return_none_on_error
 def _smiles2mol(s: str) -> Mol:
 
     return MolFromSmiles(sanitize_smiles(s))

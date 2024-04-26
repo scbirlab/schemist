@@ -155,7 +155,8 @@ def split_scaffold(strings: Union[str, Iterable[str]],
                    train: float = 1., 
                    test: float = 0.,
                    chunksize: Optional[int] = None, 
-                   progress: bool = True) -> DataSplits:
+                   progress: bool = True,
+                   *args, **kwargs) -> DataSplits:
 
     """
     

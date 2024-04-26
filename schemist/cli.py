@@ -9,7 +9,7 @@ import os
 import sys
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 
-from carabiner import pprint_dict, upper_and_lower, print_err
+from carabiner import pprint_dict, upper_and_lower
 from carabiner.cliutils import clicommand, CLIOption, CLICommand, CLIApp
 from carabiner.itertools import tenumerate
 from carabiner.pd import get_formats, write_stream
