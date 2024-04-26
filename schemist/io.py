@@ -4,7 +4,6 @@ from typing import Any, Callable, List, Optional, TextIO, Tuple, Union
 
 from collections import defaultdict
 from functools import partial
-from io import TextIOWrapper
 from string import printable
 from tempfile import NamedTemporaryFile
 from xml.etree import ElementTree
@@ -59,7 +58,7 @@ def read_weird_xml(filename: Union[str, TextIO],
 
     """
 
-    with cast(filename, TextIOWrapper, mode='r') as f:
+    with cast(filename, TextIO, mode='r') as f:
 
         xml_string = ''.join(filter(printable.__contains__, f.read()))
 
