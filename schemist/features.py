@@ -1,6 +1,7 @@
 """Tools for generating chemical features."""
 
 from typing import Any, Callable, Iterable, Optional, Union
+from functools import wraps
 
 from descriptastorus.descriptors import MakeGenerator
 from pandas import DataFrame, Series
@@ -11,6 +12,7 @@ from .converting import _smiles2mol, _convert_input_to_smiles
 
 def _feature_matrix(f: Callable[[Any], DataFrame]) -> Callable[[Any], DataFrame]:
 
+    @wraps(f)
     def _f(prefix: Optional[str] = None,
            *args, **kwargs) -> DataFrame:
 
@@ -89,20 +91,23 @@ def _fast_fingerprint(generator: FingeprintGenerator64,
 
 @_feature_matrix
 @_convert_input_to_smiles
-def calculate_fingerprints(strings: Union[Iterable[str], str], 
-                           fp_type: str = 'morgan',
-                           radius: int = 2,
-                           chiral: bool = True, 
-                           on_bits: bool = True) -> DataFrame:
+def calculate_fingerprints(
+    strings: Union[Iterable[str], str], 
+    fp_type: str = 'morgan',
+    radius: int = 2,
+    chiral: bool = True, 
+    on_bits: bool = True,
+    return_dataframe: bool = False
+) -> Union[DataFrame, Tuple[np.ndarray, np.ndarray]]:
     
-    """
+    """Calculate the binary fingerprint of string representation(s).
     
     """
     
     if fp_type.casefold() == 'morgan':
         generator_class = GetMorganGenerator
     else:
-        raise AttributeError(f"Fingerprint type {fp_type} not supported!")
+        raise NotImplementedError(f"Fingerprint type {fp_type} not supported!")
     
     fp_generator = generator_class(radius=radius, 
                                    includeChirality=chiral)
@@ -116,10 +121,8 @@ def calculate_fingerprints(strings: Union[Iterable[str], str],
                         for fp_string in fp_strings)
         fingerprints = [';'.join(fp) for fp in fingerprints]
         validity = [len(fp) > 0 for fp in fingerprints]
+        feature_matrix = fingerprints
     
-        feature_matrix = DataFrame(fingerprints, 
-                                   columns=['fp_bits'])
-        
     else:
         
         fingerprints = [np.array([int(digit) for digit in fp_string]) 
@@ -127,23 +130,33 @@ def calculate_fingerprints(strings: Union[Iterable[str], str],
                         else (-np.ones((fp_generator.GetOptions().fpSize, )))
                         for fp_string in fp_strings]
         validity = [np.all(fp >= 0) for fp in fingerprints]
+        feature_matrix = np.stack(fingerprints, axis=0)
 
-        feature_matrix = DataFrame(np.stack(fingerprints, axis=0),
-                                   columns=[f"fp_{i}" for i in range(len(fingerprints[0]))])
+    if return_dataframe:
+        ncol = feature_matrix.shape[-1]
+        if ncol == 1:
+            feature_matrix = DataFrame(feature_matrix, 
+                                       columns=['fp_bits'])
+        else:
+            feature_matrix = DataFrame(feature_matrix,
+                                        columns=[f"fp_{i}" for i in range(ncol)])
+        return feature_matrix.assign(meta_feature_type=fp_type.casefold(), 
+                                     meta_feature_valid=validity)
+    else:
+        return feature_matrix, validity
 
-    return feature_matrix.assign(meta_feature_type=fp_type.casefold(), 
-                                 meta_feature_valid=validity)
 
-
-_FEATURE_CALCULATORS = {"2d": calculate_2d_features, "fp": calculate_fingerprints}
+_FEATURE_CALCULATORS = {
+    "2d": calculate_2d_features, 
+    "fp": calculate_fingerprints,
+}
 
 def calculate_feature(feature_type: str,
                       *args, **kwargs):
     
-    """
+    """Calculate the binary fingerprint or descriptor vector of string representation(s).
     
     """
     
     featurizer = _FEATURE_CALCULATORS[feature_type]
-
     return featurizer(*args, **kwargs)
