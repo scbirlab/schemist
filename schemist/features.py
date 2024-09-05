@@ -1,6 +1,6 @@
 """Tools for generating chemical features."""
 
-from typing import Any, Callable, Iterable, Optional, Union
+from typing import Any, Callable, Iterable, List, Optional, Union
 from functools import wraps
 
 from descriptastorus.descriptors import MakeGenerator
@@ -14,12 +14,11 @@ def _feature_matrix(f: Callable[[Any], DataFrame]) -> Callable[[Any], DataFrame]
 
     @wraps(f)
     def _f(prefix: Optional[str] = None,
-           *args, **kwargs) -> DataFrame:
+           *args, **kwargs) -> Union[DataFrame, Tuple[np.ndarray, np.ndarray]]:
 
         feature_matrix = f(*args, **kwargs)
 
-        if prefix is not None:
-
+        if prefix is not None and isinstance(feature_matrix, DataFrame):
             new_cols = {col: f"{prefix}_{col}" 
                         for col in feature_matrix.columns 
                         if not col.startswith('_meta')}
@@ -30,25 +29,24 @@ def _feature_matrix(f: Callable[[Any], DataFrame]) -> Callable[[Any], DataFrame]
     return _f
 
 
-def _get_descriptastorus_features(smiles: Iterable[str], 
-                                  generator: str) -> DataFrame:
+def _get_descriptastorus_features(
+    smiles: Iterable[str], 
+    generator: str
+) -> Union[DataFrame, Tuple[np.ndarray, List[str]]]:
 
     generator = MakeGenerator((generator, ))
-    smiles = Series(smiles)
-
-    features = smiles.apply(lambda z: np.array(generator.process(z)))
-    matrix = np.stack(features.values, axis=0)
-    
-    return DataFrame(matrix, 
-                     index=smiles.index,
-                     columns=[col for col, _ in generator.GetColumns()])
+    features = map(generator.process, smiles)    
+    return np.stack(features, axis=0), [col for col, _ in generator.GetColumns()]
 
 
 @_feature_matrix
 @_convert_input_to_smiles
-def calculate_2d_features(strings: Union[Iterable[str], str], 
-                          normalized: bool = True, 
-                          histogram_normalized: bool = True) -> DataFrame:
+def calculate_2d_features(
+    strings: Union[Iterable[str], str], 
+    normalized: bool = True, 
+    histogram_normalized: bool = True,
+    return_dataframe: bool = False
+) -> Union[DataFrame, Tuple[np.ndarray, np.ndarray]]:
 
     """Calculate 2d features from string representation.
     
@@ -62,16 +60,28 @@ def calculate_2d_features(strings: Union[Iterable[str], str],
     else:
         generator_name = "RDKit2D"
 
-    feature_matrix = _get_descriptastorus_features(strings,
-                                                   generator=generator_name)
+    feature_matrix, columns = _get_descriptastorus_features(
+        strings,
+        generator=generator_name,
+    )
 
-    feature_matrix = (feature_matrix
-                      .rename(columns={f"{generator_name}_calculated": "meta_feature_valid0"})
-                      .assign(meta_feature_type=generator_name, 
-                              meta_feature_valid=lambda x: (x['meta_feature_valid0'] == 1.))
-                      .drop(columns=['meta_feature_valid0']))
+    if return_dataframe:
+        feature_matrix = DataFrame(
+            feature_matrix, 
+            index=strings,
+            columns=columns,
+        )
 
-    return feature_matrix
+        feature_matrix = (
+            feature_matrix
+            .rename(columns={f"{generator_name}_calculated": "meta_feature_valid0"})
+            .assign(meta_feature_type=generator_name, 
+                    meta_feature_valid=lambda x: (x['meta_feature_valid0'] == 1.))
+            .drop(columns=['meta_feature_valid0'])
+        )
+        return feature_matrix
+    else:
+        return feature_matrix[:,1:], feature_matrix[:,0]
 
 
 def _fast_fingerprint(generator: FingeprintGenerator64, 
@@ -152,7 +162,7 @@ _FEATURE_CALCULATORS = {
 }
 
 def calculate_feature(feature_type: str,
-                      *args, **kwargs):
+                      *args, **kwargs) -> Union[DataFrame, Tuple[np.ndarray, np.ndarray]]:
     
     """Calculate the binary fingerprint or descriptor vector of string representation(s).
     
