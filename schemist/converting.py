@@ -292,8 +292,8 @@ _TO_FUNCTIONS = {"smiles": _mol2isomeric_canonical_smiles,
                  "clogp": _mol2clogp,
                  "tpsa": _mol2tpsa,
                  "mwt": _mol2mwt,
-                 "max_charge": _mol2min_charge,
-                 "min_charge": _mol2max_charge}
+                 "min_charge": _mol2min_charge,
+                 "max_charge": _mol2max_charge}
 
 _FROM_FUNCTIONS = {"smiles": _smiles2mol,
                    "selfies": _selfies2mol,
