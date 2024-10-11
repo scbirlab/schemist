@@ -84,7 +84,7 @@ def calculate_2d_features(
     >>> features, validity = calculate_2d_features(strings=['CCC', 'CCCO'])
     >>> features[:,:3]
     array([[4.22879602e-01, 1.30009101e-04, 2.00014001e-05],
-        [7.38891722e-01, 6.00042003e-04, 5.00035002e-05]])
+           [7.38891722e-01, 6.00042003e-04, 5.00035002e-05]])
     >>> validity
     array([1., 1.])
     >>> calculate_2d_features(strings=['CCC', 'CCCO'], return_dataframe=True).meta_feature_valid
@@ -191,12 +191,12 @@ def calculate_fingerprints(
     --------
     >>> bits, validity = calculate_fingerprints(strings='CCC')
     >>> bits
-    ['80;294;1057;1344']
+    array(['80;294;1057;1344'], dtype='<U16')
     >>> sum(validity)  # doctest: +NORMALIZE_WHITESPACE
     1 
     >>> bits, validity = calculate_fingerprints(strings=['CCC', 'CCCO'])
     >>> bits
-    ['80;294;1057;1344', '80;222;294;473;794;807;1057;1277']
+    array(['80;294;1057;1344', '80;222;294;473;794;807;1057;1277'], dtype='<U16')
     >>> sum(validity)  # doctest: +NORMALIZE_WHITESPACE
     2
     >>> np.sum(calculate_fingerprints(strings=['CCC', 'CCCO'], on_bits=False)[0], axis=-1)
