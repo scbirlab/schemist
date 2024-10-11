@@ -8,8 +8,6 @@ Cleaning, collating, and augmenting chemical datasets.
 
 - [Installation](#installation)
 - [Command-line usage](#command-line-usage)
-    - [Example](#example)
-    - [Other commands](#other-commands)
 - [Python API](#python-api)
 - [Documentation](#documentation)
 
@@ -74,12 +72,6 @@ schemist <command> --help
 
 For the Python API, [see below](#python-api).
 
-## Example
-
-
-## Other commands
-
-
 
 ## Python API
 
@@ -88,8 +80,6 @@ For the Python API, [see below](#python-api).
 ```python
 >>> import schemist as sch
 ```
-
-
 
 ## Documentation
 
