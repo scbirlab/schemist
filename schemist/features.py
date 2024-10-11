@@ -225,7 +225,7 @@ def calculate_fingerprints(
                         for fp_string in fp_strings)
         fingerprints = [';'.join(fp) for fp in fingerprints]
         validity = [len(fp) > 0 for fp in fingerprints]
-        feature_matrix = fingerprints
+        feature_matrix = np.asarray(fingerprints)
     
     else:
         
