@@ -1,11 +1,14 @@
 """Tools for generating chemical features."""
 
-from typing import Any, Callable, Iterable, List, Optional, Union
+from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
 from functools import wraps
 
+from carabiner.cast import cast
 from descriptastorus.descriptors import MakeGenerator
 from pandas import DataFrame, Series
 import numpy as np
+from rdkit import RDLogger
+RDLogger.DisableLog('rdApp.*')
 from rdkit.Chem.AllChem import FingeprintGenerator64, GetMorganGenerator, Mol
 
 from .converting import _smiles2mol, _convert_input_to_smiles
@@ -35,7 +38,7 @@ def _get_descriptastorus_features(
 ) -> Union[DataFrame, Tuple[np.ndarray, List[str]]]:
 
     generator = MakeGenerator((generator, ))
-    features = map(generator.process, smiles)    
+    features = list(map(generator.process, smiles))    
     return np.stack(features, axis=0), [col for col, _ in generator.GetColumns()]
 
 
@@ -49,7 +52,46 @@ def calculate_2d_features(
 ) -> Union[DataFrame, Tuple[np.ndarray, np.ndarray]]:
 
     """Calculate 2d features from string representation.
-    
+
+    Parameters
+    ----------
+    strings : str
+        Input string representation(s).
+    input_representation : str
+        Representation type
+    normalized : bool, optional
+        Whether to return normalized features. Default: `True`.
+    histogram_normalized : bool, optional
+        Whether to return histogram normalized features (faster). Default: `True`.
+    return_dataframe : bool, optional
+        Whether to retrun a Pandas DataFrame instead of a numpy Array. Default: `False`.
+
+    Returns
+    -------
+    DataFrame, Tuple of numpy Arrays
+        If `return_dataframe = True`, a DataFrame with named feature columns, and 
+        the final column called `"meta_feature_valid"` being the validity indicator.
+        Otherwise returns a tuple of Arrays with the first being the matrix of 
+        features and the second being the vector of validity indicators.
+
+    Examples
+    --------
+    >>> features, validity = calculate_2d_features(strings='CCC')
+    >>> features[:,:3]
+    array([[4.22879602e-01, 1.30009101e-04, 2.00014001e-05]])
+    >>> validity
+    array([1.])
+    >>> features, validity = calculate_2d_features(strings=['CCC', 'CCCO'])
+    >>> features[:,:3]
+    array([[4.22879602e-01, 1.30009101e-04, 2.00014001e-05],
+        [7.38891722e-01, 6.00042003e-04, 5.00035002e-05]])
+    >>> validity
+    array([1., 1.])
+    >>> calculate_2d_features(strings=['CCC', 'CCCO'], return_dataframe=True).meta_feature_valid
+    CCC     True
+    CCCO    True
+    Name: meta_feature_valid, dtype: bool
+
     """  
 
     if normalized:
@@ -59,7 +101,8 @@ def calculate_2d_features(
             generator_name = "RDKit2DNormalized"
     else:
         generator_name = "RDKit2D"
-
+    
+    strings = cast(strings, to=list)
     feature_matrix, columns = _get_descriptastorus_features(
         strings,
         generator=generator_name,
@@ -111,7 +154,58 @@ def calculate_fingerprints(
 ) -> Union[DataFrame, Tuple[np.ndarray, np.ndarray]]:
     
     """Calculate the binary fingerprint of string representation(s).
+
+    Only Morgan fingerprints are allowed.
+
+    Parameters
+    ----------
+    strings : str
+        Input string representation(s).
+    input_representation : str
+        Representation type
+    fp_type : str, opional
+        Which fingerprint type to calculate. Default: `'morgan'`.
+    radius : int, optional
+        Atom radius for fingerprints. Default: `2`.
+    chiral : bool, optional
+        Whether to take chirality into account. Default: `True`.
+    on_bits : bool, optional
+        Whether to return the non-zero indices instead of the full binary vector. Default: `True`.
+    return_dataframe : bool, optional
+        Whether to retrun a Pandas DataFrame instead of a numpy Array. Default: `False`.
+
+    Returns
+    -------
+    DataFrame, Tuple of numpy Arrays
+        If `return_dataframe = True`, a DataFrame with named feature columns, and 
+        the final column called `"meta_feature_valid"` being the validity indicator.
+        Otherwise returns a tuple of Arrays with the first being the matrix of 
+        features and the second being the vector of validity indicators.
+
+    Raises
+    ------
+    NotImplementedError
+        If `fp_type` is not `'morgan'`.
     
+    Examples
+    --------
+    >>> bits, validity = calculate_fingerprints(strings='CCC')
+    >>> bits
+    ['80;294;1057;1344']
+    >>> validity
+    [True] 
+    >>> bits, validity = calculate_fingerprints(strings=['CCC', 'CCCO'])
+    >>> bits
+    ['80;294;1057;1344', '80;222;294;473;794;807;1057;1277']
+    >>> validity
+    [True, True]
+    >>> np.sum(calculate_fingerprints(strings=['CCC', 'CCCO'], on_bits=False)[0], axis=-1)
+    array([4, 8])
+    >>> calculate_fingerprints(strings=['CCC', 'CCCO'], return_dataframe=True).meta_feature_valid
+    CCC     True
+    CCCO    True
+    Name: meta_feature_valid, dtype: bool
+
     """
     
     if fp_type.casefold() == 'morgan':
@@ -121,7 +215,7 @@ def calculate_fingerprints(
     
     fp_generator = generator_class(radius=radius, 
                                    includeChirality=chiral)
-    mols = (_smiles2mol(s) for s in strings)
+    mols = (_smiles2mol(s) for s in cast(strings, to=list))
     fp_strings = (_fast_fingerprint(fp_generator, mol, to_np=on_bits) 
                   for mol in mols)
 
@@ -161,8 +255,10 @@ _FEATURE_CALCULATORS = {
     "fp": calculate_fingerprints,
 }
 
-def calculate_feature(feature_type: str,
-                      *args, **kwargs) -> Union[DataFrame, Tuple[np.ndarray, np.ndarray]]:
+def calculate_feature(
+    feature_type: str,
+    return_dataframe: bool = False,
+    *args, **kwargs) -> Union[DataFrame, Tuple[np.ndarray, np.ndarray]]:
     
     """Calculate the binary fingerprint or descriptor vector of string representation(s).
     
