@@ -215,7 +215,8 @@ def calculate_fingerprints(
     
     fp_generator = generator_class(radius=radius, 
                                    includeChirality=chiral)
-    mols = (_smiles2mol(s) for s in cast(strings, to=list))
+    strings = cast(strings, to=list)
+    mols = (_smiles2mol(s) for s in strings)
     fp_strings = (_fast_fingerprint(fp_generator, mol, to_np=on_bits) 
                   for mol in mols)
 
@@ -238,8 +239,11 @@ def calculate_fingerprints(
 
     if return_dataframe:
         if feature_matrix.ndim == 1:  # on_bits only
-            feature_matrix = DataFrame(feature_matrix, 
-                                       columns=['fp_bits'])
+            feature_matrix = DataFrame(
+                feature_matrix, 
+                columns=['fp_bits'],
+                index=strings,
+            )
         else:
             feature_matrix = DataFrame(feature_matrix,
                                        columns=[f"fp_{i}" for i, _ in enumerate(feature_matrix.T)])
