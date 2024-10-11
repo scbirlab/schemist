@@ -13,7 +13,7 @@ from rdkit.Chem.AllChem import FingeprintGenerator64, GetMorganGenerator, Mol
 
 from .converting import _smiles2mol, _convert_input_to_smiles
 
-def _feature_matrix(f: Callable[[Any], DataFrame]) -> Callable[[Any], DataFrame]:
+def _feature_matrix(f: Callable[[Any], DataFrame]) -> Callable[[Any], Union[DataFrame, Tuple[np.ndarray, np.ndarray]]]:
 
     @wraps(f)
     def _f(prefix: Optional[str] = None,
@@ -225,7 +225,6 @@ def calculate_fingerprints(
                         for fp_string in fp_strings)
         fingerprints = [';'.join(fp) for fp in fingerprints]
         validity = [len(fp) > 0 for fp in fingerprints]
-        feature_matrix = np.asarray(fingerprints)
     
     else:
         
@@ -234,16 +233,16 @@ def calculate_fingerprints(
                         else (-np.ones((fp_generator.GetOptions().fpSize, )))
                         for fp_string in fp_strings]
         validity = [np.all(fp >= 0) for fp in fingerprints]
-        feature_matrix = np.stack(fingerprints, axis=0)
+        
+    feature_matrix = np.stack(fingerprints, axis=0)
 
     if return_dataframe:
-        ncol = feature_matrix.shape[-1]
-        if ncol == 1:
+        if feature_matrix.ndim == 1:  # on_bits only
             feature_matrix = DataFrame(feature_matrix, 
                                        columns=['fp_bits'])
         else:
             feature_matrix = DataFrame(feature_matrix,
-                                        columns=[f"fp_{i}" for i in range(ncol)])
+                                       columns=[f"fp_{i}" for i, _ in enumerate(feature_matrix.T)])
         return feature_matrix.assign(meta_feature_type=fp_type.casefold(), 
                                      meta_feature_valid=validity)
     else:
