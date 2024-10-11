@@ -190,12 +190,12 @@ def calculate_fingerprints(
     Examples
     --------
     >>> bits, validity = calculate_fingerprints(strings='CCC')
-    >>> list(bits)
+    >>> bits.tolist()
     ['80;294;1057;1344']
     >>> sum(validity)  # doctest: +NORMALIZE_WHITESPACE
     1 
     >>> bits, validity = calculate_fingerprints(strings=['CCC', 'CCCO'])
-    >>> list(bits)
+    >>> bits.tolist()
     ['80;294;1057;1344', '80;222;294;473;794;807;1057;1277']
     >>> sum(validity)  # doctest: +NORMALIZE_WHITESPACE
     2
