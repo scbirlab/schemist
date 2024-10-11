@@ -4,7 +4,7 @@
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/schemist)
 ![PyPI](https://img.shields.io/pypi/v/schemist)
 
-Cleaning, collating, and augmenting chemical datasets.
+Organizing and processing tables of chemical structures.
 
 ```{toctree}
 :maxdepth: 2
@@ -16,6 +16,10 @@ python
 modules
 ```
 
+## Issues, problems, suggestions
+
+Add to the [issue tracker](https://www.github.com/schemist/issues).
+
 ## Source
 
-`GitHub <https://github.com/scbirlab/schemist>`_
+View source at [GitHub](https://github.com/scbirlab/schemist).

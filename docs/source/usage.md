@@ -1,35 +1,6 @@
-# ⬢⬢⬢ schemist
+# Usage
 
-![GitHub Workflow Status (with branch)](https://img.shields.io/github/actions/workflow/status/scbirlab/schemist/python-publish.yml)
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/schemist)
-![PyPI](https://img.shields.io/pypi/v/schemist)
-
-Cleaning, collating, and augmenting chemical datasets.
-
-- [Installation](#installation)
-- [Command-line usage](#command-line-usage)
-    - [Example](#example)
-    - [Other commands](#other-commands)
-- [Python API](#python-api)
-- [Documentation](#documentation)
-
-## Installation
-
-### The easy way
-
-Install the pre-compiled version from PyPI:
-
-```bash
-pip install schemist
-```
-
-### From source
-
-Clone the repository, then `cd` into it. Then run:
-
-```bash
-pip install -e .
-```
+**schemist** has a variety of utilities which can be used through the command-line or the [Python API](#python-api).
 
 ## Command-line usage
 
@@ -74,23 +45,11 @@ schemist <command> --help
 
 For the Python API, [see below](#python-api).
 
-## Example
-
-
-## Other commands
-
-
 
 ## Python API
 
-**schemist** can be imported into Python to help make custom analyses.
+You can access the underlying functions of `schemist` to help custom analyses or develop other tools.
 
 ```python
 >>> import schemist as sch
 ```
-
-
-
-## Documentation
-
-Full API documentation is at [ReadTheDocs](https://schemist.readthedocs.org).
