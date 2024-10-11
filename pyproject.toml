@@ -28,7 +28,7 @@ classifiers = [
 ]
 
 dependencies = [ 
-  "carabiner-tools[pd]",
+  "carabiner-tools[pd]>=0.0.3.post1",
   "datamol",
   "descriptastorus",
   "nemony",
@@ -36,7 +36,7 @@ dependencies = [
   "pandas",
   "rdkit",
   "requests",
-  "selfies"
+  "selfies",
 ]
 
 [project.urls]
