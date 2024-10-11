@@ -114,7 +114,8 @@ def featurizer(df: DataFrame,
     feature_df = calculate_feature(feature_type=feature_type,
                                    strings=_get_column_values(df, column), 
                                    prefix=prefix,
-                                   input_representation=input_representation)
+                                   input_representation=input_representation,
+                                   return_dataframe=True)
     
     if len(ids) > 0:
         df = concat([df[ids], feature_df], axis=1)

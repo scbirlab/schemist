@@ -303,33 +303,38 @@ _FROM_FUNCTIONS = {"smiles": _smiles2mol,
                    "minihelm": _mini_helm2mol}
 
 
-def _x2mol(strings: Union[Iterable[str], str],
-           input_representation: str = 'smiles') -> Union[Mol, None, Iterable[Union[Mol, None]]]:
+def _x2mol(
+    strings: Union[Iterable[str], str],
+    input_representation: str = 'smiles'
+) -> Union[Mol, None, Iterable[Union[Mol, None]]]:
 
     from_function = _FROM_FUNCTIONS[input_representation.casefold()]
-
     return from_function(strings)
 
 
-def _mol2x(mols: Union[Iterable[Mol], Mol],
-           output_representation: str = 'smiles',
-           **kwargs) -> Union[str, None, Iterable[Union[str, None]]]:
+def _mol2x(
+    mols: Union[Iterable[Mol], Mol],
+    output_representation: str = 'smiles',
+    **kwargs
+) -> Union[str, None, Iterable[Union[str, None]]]:
 
     to_function = _TO_FUNCTIONS[output_representation.casefold()]
 
     return to_function(mols, **kwargs)
 
 
-def convert_string_representation(strings: Union[Iterable[str], str],
-                                  input_representation: str = 'smiles', 
-                                  output_representation: Union[Iterable[str], str] = 'smiles', 
-                                  **kwargs) -> Union[str, None, Iterable[Union[str, None]], Dict[str, Union[str, None, Iterable[Union[str, None]]]]]:
+def convert_string_representation(
+    strings: Union[Iterable[str], str],
+    input_representation: str = 'smiles', 
+    output_representation: Union[Iterable[str], str] = 'smiles', 
+    **kwargs
+) -> Union[str, None, Iterable[Union[str, None]], Dict[str, Union[str, None, Iterable[Union[str, None]]]]]:
     
     """Convert between string representations of chemical structures.
     
     """
 
-    mols = _x2mol(strings, input_representation)
+    mols = _x2mol(cast(strings, to=list), input_representation)
     # print_err(mols)
 
     if not isinstance(output_representation, str) and isinstance(output_representation, Iterable):
@@ -348,15 +353,17 @@ def convert_string_representation(strings: Union[Iterable[str], str],
 def _convert_input_to_smiles(f: Callable) -> Callable:
 
     @wraps(f)
-    def _f(strings: Union[Iterable[str], str], 
-           input_representation: str = 'smiles',
-           *args, **kwargs) -> Union[str, None, Iterable[Union[str, None]]]:
+    def _f(
+        strings: Union[Iterable[str], str], 
+        input_representation: str = 'smiles',
+        *args, **kwargs
+    ) -> Union[str, None, Iterable[Union[str, None]]]:
         
-        smiles = convert_string_representation(strings, 
-                                               output_representation='smiles', 
-                                               input_representation=input_representation)
-
-        return f(strings=smiles, 
-                 *args, **kwargs)
+        smiles = convert_string_representation(
+            cast(strings, to=list), 
+            output_representation='smiles', 
+            input_representation=input_representation
+        )
+        return f(strings=smiles, *args, **kwargs)
 
     return _f
