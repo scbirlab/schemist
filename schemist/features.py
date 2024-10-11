@@ -190,13 +190,13 @@ def calculate_fingerprints(
     Examples
     --------
     >>> bits, validity = calculate_fingerprints(strings='CCC')
-    >>> bits
-    array(['80;294;1057;1344'], dtype='<U16')
+    >>> list(bits)
+    ['80;294;1057;1344']
     >>> sum(validity)  # doctest: +NORMALIZE_WHITESPACE
     1 
     >>> bits, validity = calculate_fingerprints(strings=['CCC', 'CCCO'])
-    >>> bits
-    array(['80;294;1057;1344', '80;222;294;473;794;807;1057;1277'], dtype='<U16')
+    >>> list(bits)
+    ['80;294;1057;1344', '80;222;294;473;794;807;1057;1277']
     >>> sum(validity)  # doctest: +NORMALIZE_WHITESPACE
     2
     >>> np.sum(calculate_fingerprints(strings=['CCC', 'CCCO'], on_bits=False)[0], axis=-1)
