@@ -1,8 +1,0 @@
-myst_parser
-matplotlib
-numpy
-openpyxl==3.1.0 
-pandas
-scipy
-sphinx_rtd_theme
-./
