@@ -1,0 +1,7 @@
+carabiner-tools[mpl,pd]>=0.0.3.post1
+gradio>=5.0
+nemony
+numpy
+pandas
+rdkit
+schemist==0.0.1
