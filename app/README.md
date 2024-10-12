@@ -9,7 +9,6 @@ app_file: app.py
 pinned: false
 short_description: Trivial batch interconversion of 1D chemical formats.
 ---
-
 # Chemical string format converter
 
 [![Open in Spaces](https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-md-dark.svg)](https://huggingface.co/spaces/scbirlab/chem-converter)
