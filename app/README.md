@@ -30,9 +30,10 @@ to...
 - InChI
 - InChIKey
 - Name 
-- cLogP
+- Murcko scaffold
+- Crippen LogP
 - TPSA
-- molecular weight
-- charge
+- Molecular weight
+- Charge
 
 ... and several others!

@@ -38,11 +38,12 @@ def _convert_input(
     output_representation: Union[Iterable[str], str] = 'smiles'
 ) -> List[str]:
     strings = _clean_split_input(strings)
-    return cast(map(str, convert_string_representation(
+    converted = convert_string_representation(
         strings=strings, 
         input_representation=input_representation, 
         output_representation=output_representation,
-    )), to=list)
+    )
+    return {key: list(map(str, cast(val, to=list))) for key, val in converted.items()}
 
 
 def convert_one(
@@ -74,8 +75,7 @@ def convert_file(
 ):
     message = f"Converting from {input_representation} to {output_representation}..."
     print_err(message)
-    gr.Info(message, duration=5)
-    print_err(df)
+    gr.Info(message, duration=3)
     errors, df = converter(
         df=df,
         column=column,
@@ -101,8 +101,11 @@ def draw_one(
     strings: Union[Iterable[str], str],
     input_representation: str = 'smiles'
 ):
-    smiles = _convert_input(strings, input_representation, "inchikey")
-    ids = _convert_input(strings, input_representation, "id")
+    _ids = _convert_input(
+        strings, 
+        input_representation, 
+        ["inchikey", "id"],
+    )
     mols = cast(_x2mol(_clean_split_input(strings), input_representation), to=list)
     if isinstance(mols, Mol):
         mols = [mols]
@@ -110,7 +113,7 @@ def draw_one(
         mols,
         molsPerRow=min(3, len(mols)), 
         subImgSize=(300, 300),
-        legends=[f"{sm}\n{_id}" for sm, _id in zip(smiles, ids)],
+        legends=["\n".join(items) for items in zip(*_ids.values())],
     )
 
 
@@ -131,18 +134,18 @@ with gr.Blocks() as demo:
         """
     )
     with gr.Tab(label="Paste one per line"):
+        input_format_single = gr.Dropdown(
+            label="Input string format",
+            choices=list(_FROM_FUNCTIONS),
+            value="smiles",
+            interactive=True,
+        )
         input_line = gr.Textbox(
             label="Input",
             placeholder="Paste your molecule here, one per line",
             lines=2,
             interactive=True,
             submit_btn=True,
-        )
-        input_format_single = gr.Dropdown(
-            label="Input string format",
-            choices=list(_FROM_FUNCTIONS),
-            value="smiles",
-            interactive=True,
         )
         output_format_single = gr.CheckboxGroup(
             label="Output format",
