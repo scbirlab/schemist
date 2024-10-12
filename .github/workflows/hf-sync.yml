@@ -19,12 +19,12 @@ jobs:
             HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           set -x
-          git checkout -b deploy-app && git rm -rf *
           git remote add space https://huggingface.co/spaces/scbirlab/chem-converter.git
-          git pull space main
+          git fetch space main
+          git switch -c space-main space/main
+          git rm *
           git checkout main -- app
-          git mv app/* .
-          rm -r app/
+          git mv app/* . && rm -r app/
           git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
           git config --global user.name "${GITHUB_ACTOR}"
           git add . && git commit -m "$(date) :: HF Spaces deployment"
