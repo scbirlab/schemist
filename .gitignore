@@ -28,3 +28,7 @@ __pycache__
 /share/
 
 /build/
+
+# gradio
+.gradio/
+converted-*.csv
