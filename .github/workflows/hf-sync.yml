@@ -21,7 +21,7 @@ jobs:
           set -x
           git remote add space https://huggingface.co/spaces/scbirlab/chem-converter.git
           git fetch space main && git switch -c space-main space/main
-          git rm *
+          git rm -rf *
           git checkout main -- app
           git mv app/* . && rm -r app/
           git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
@@ -29,4 +29,4 @@ jobs:
           ls -lah
           git status
           git add . && git commit -m "$(date) :: HF Spaces deployment"
-          git push --force https://HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/scbirlab/chem-converter main
+          git push --force https://HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/scbirlab/chem-converter space-main:main
