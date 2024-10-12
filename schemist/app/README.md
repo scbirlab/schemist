@@ -4,14 +4,17 @@ emoji: ⚗️
 colorFrom: blue
 colorTo: green
 sdk: gradio
-sdk_version: 5.0
-app_file: app.py
+5.0.2
+app_file: schemist/app/app.py
 pinned: false
+short_description: Trivial batch interconversion of 1D chemical formats.
 ---
 
 # Chemical string format converter
 
-Frontend for [schemist](https://github.com/scbirlab/schemist) to allow trivial interconversion from:
+Trivial batch interconversion of 1D chemical formats.
+
+Frontend for [schemist](https://github.com/scbirlab/schemist) to allow interconversion from:
 
 - SMILES
 - SELFIES
