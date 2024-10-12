@@ -18,7 +18,9 @@ jobs:
         env:
             HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          git checkout -b deploy-app
+          git checkout -b deploy-app && git rm -rf *
           git checkout main -- app
-          git commit -m "$(date) :: HF Spaces deployment"
-          git push https://HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/scbirlab/chem-converter deploy-app
+          git mv app/* .
+          rm -r app/
+          git add . && git commit -m "$(date) :: HF Spaces deployment"
+          git push https://HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/scbirlab/chem-converter main

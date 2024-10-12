@@ -4,8 +4,8 @@ emoji: ⚗️
 colorFrom: blue
 colorTo: green
 sdk: gradio
-5.0.2
-app_file: app/app.py
+sdk_version: 5.0.2
+app_file: app.py
 pinned: false
 short_description: Trivial batch interconversion of 1D chemical formats.
 ---
