@@ -26,9 +26,11 @@ def load_input_data(file: TextIOWrapper) -> pd.DataFrame:
     string_cols = list(df.select_dtypes(exclude=[np.number]))
     df = gr.Dataframe(value=df, visible=True)
     return df, gr.Dropdown(choices=string_cols, interactive=True)
+    
 
 def _clean_split_input(strings: str) -> List[str]:
     return [s2.strip() for s in strings.split("\n") for s2 in s.split(",")]
+
 
 def _convert_input(
     strings: str,
