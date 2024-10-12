@@ -5,7 +5,7 @@ colorFrom: blue
 colorTo: green
 sdk: gradio
 5.0.2
-app_file: schemist/app/app.py
+app_file: app/app.py
 pinned: false
 short_description: Trivial batch interconversion of 1D chemical formats.
 ---

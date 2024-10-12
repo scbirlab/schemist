@@ -49,6 +49,7 @@ dependencies = [
 schemist = "schemist.cli:main"
 
 [tool.setuptools]
+packages = ["schemist"]
 # If there are data files included in your packages that need to be
 # installed, specify them here.
 # package-data = {"" = ["*.yml"]}
