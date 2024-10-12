@@ -14,6 +14,7 @@ from carabiner.cliutils import clicommand, CLIOption, CLICommand, CLIApp
 from carabiner.itertools import tenumerate
 from carabiner.pd import get_formats, write_stream
 
+from . import __version__
 from .collating import collate_inventory, deduplicate_file
 from .converting import _TO_FUNCTIONS, _FROM_FUNCTIONS
 from .generating import AA, REACTIONS
@@ -21,8 +22,6 @@ from .io import _mutate_df_stream
 from .tables import (converter, cleaner, featurizer, assign_groups, 
                      _assign_splits, splitter, _peptide_table, reactor)
 from .splitting import _SPLITTERS, _GROUPED_SPLITTERS
-
-__version__ = '0.0.1'
 
 def _option_parser(x: Optional[List[str]]) -> Dict[str, Any]:
 

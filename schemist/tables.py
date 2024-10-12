@@ -1,6 +1,6 @@
 """Tools for processing tabular data."""
 
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Tuple, Union
 from functools import partial
 
 try:
@@ -45,9 +45,9 @@ def _get_error_tally(df: DataFrame,
 def converter(df: DataFrame, 
               column: str = 'smiles',
               input_representation: str = 'smiles',
-              output_representation: Union[str, List[str]] = 'smiles',
+              output_representation: Union[str, Iterable[str]] = 'smiles',
               prefix: Optional[str] = None,
-              options: Optional[Dict[str, Any]] = None) -> Tuple[Dict[str, int], DataFrame]:
+              options: Optional[Mapping[str, Any]] = None) -> Tuple[Dict[str, int], DataFrame]:
     
     """
     
@@ -59,13 +59,14 @@ def converter(df: DataFrame,
     column_values = _get_column_values(df, column)
 
     output_representation = cast(output_representation, to=list)
-    converters = convert_string_representation(column_values,
-                                               output_representation=output_representation,
-                                               input_representation=input_representation,
-                                               **options)
+    converters = convert_string_representation(
+        column_values,
+        output_representation=output_representation,
+        input_representation=input_representation,
+        **options,
+    )
     converted = {f"{prefix}{conversion_name}": cast(conversion, to=list) 
                  for conversion_name, conversion in converters.items()}
-                 
     df = df.assign(**converted)
 
     return  _get_error_tally(df, list(converted)), df

@@ -3,6 +3,7 @@
 ![GitHub Workflow Status (with branch)](https://img.shields.io/github/actions/workflow/status/scbirlab/schemist/python-publish.yml)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/schemist)
 ![PyPI](https://img.shields.io/pypi/v/schemist)
+[![Open in Spaces](https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-md-dark.svg)](https://huggingface.co/spaces/scbirlab/chem-converter)
 
 Cleaning, collating, and augmenting chemical datasets.
 
