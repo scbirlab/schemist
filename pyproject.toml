@@ -35,7 +35,7 @@ dependencies = [
   "nemony",
   "openpyxl==3.1.0", 
   "pandas",
-  "rdkit-pypi==2023.3.1b1",
+  "rdkit-pypi",
   "requests",
   "selfies",
 ]
