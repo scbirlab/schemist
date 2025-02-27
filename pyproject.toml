@@ -35,10 +35,13 @@ dependencies = [
   "nemony",
   "openpyxl==3.1.0", 
   "pandas",
-  "rdkit",
+  "rdkit-pypi",
   "requests",
   "selfies",
 ]
+
+[project.optional-dependencies]
+old_glibc = ["rdkit-pypi==2023.3.1b1"]
 
 [project.urls]
 "Homepage" = "https://github.com/scbirlab/schemist"
