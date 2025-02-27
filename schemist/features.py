@@ -9,7 +9,11 @@ from pandas import DataFrame, Series
 import numpy as np
 from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
-from rdkit.Chem.AllChem import FingeprintGenerator64, GetMorganGenerator, Mol
+
+try:
+    from rdkit.Chem.AllChem import FingeprintGenerator64 as FingerprintGenerator64, GetMorganGenerator, Mol
+except ImportError: # typo in some rdkit versions
+    from rdkit.Chem.AllChem import FingerprintGenerator64, GetMorganGenerator, Mol
 
 from .converting import _smiles2mol, _convert_input_to_smiles
 
@@ -127,7 +131,7 @@ def calculate_2d_features(
         return feature_matrix[:,1:], feature_matrix[:,0]
 
 
-def _fast_fingerprint(generator: FingeprintGenerator64, 
+def _fast_fingerprint(generator: FingerprintGenerator64, 
                       mol: Mol,
                       to_np: bool = True) -> Union[str, np.ndarray]:
 
@@ -268,4 +272,4 @@ def calculate_feature(
     """
     
     featurizer = _FEATURE_CALCULATORS[feature_type]
-    return featurizer(*args, **kwargs)
+    return featurizer(*args, return_dataframe=return_dataframe, **kwargs)
