@@ -2,8 +2,10 @@
 
 from carabiner.decorators import vectorize
 
-from datamol import sanitize_smiles
+from rdkit.Chem import MolToSmiles
 import selfies as sf
+
+from .converting import sanitize_smiles_to_mol
 
 @vectorize
 def clean_smiles(smiles: str, 
@@ -13,7 +15,7 @@ def clean_smiles(smiles: str,
     
     """
 
-    return sanitize_smiles(smiles, *args, **kwargs) 
+    return MolToSmiles(sanitize_smiles_to_mol(smiles, *args, **kwargs))
 
 
 @vectorize
@@ -24,4 +26,4 @@ def clean_selfies(selfies: str,
     
     """
 
-    return sf.encode(sanitize_smiles(sf.decode(selfies), *args, **kwargs))
+    return sf.encode(MolToSmiles(sanitize_smiles_to_mol(sf.decode(selfies), *args, **kwargs)))

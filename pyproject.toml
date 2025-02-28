@@ -24,23 +24,23 @@ classifiers = [
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3 :: Only",
 ]
 
 dependencies = [ 
   "carabiner-tools[pd]>=0.0.3.post1",
-  "datamol",
   "descriptastorus==2.6.1",
   "nemony",
   "openpyxl==3.1.0", 
   "pandas",
-  "rdkit-pypi",
+  "rdkit>=2022.09.5",
   "requests",
   "selfies",
 ]
 
 [project.optional-dependencies]
-old_glibc = ["rdkit-pypi==2023.3.1b1"]
+old_glibc = ["rdkit-pypi==2022.09.5"]
 
 [project.urls]
 "Homepage" = "https://github.com/scbirlab/schemist"
