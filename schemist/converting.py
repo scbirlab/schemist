@@ -9,13 +9,24 @@ from carabiner.cast import cast, flatten
 from carabiner.decorators import return_none_on_error, vectorize
 from carabiner.itertools import batched
 
-from datamol import sanitize_smiles
+# from datamol import sanitize_smiles
 import nemony as nm
 from pandas import DataFrame
-from rdkit.Chem import (Crippen, Descriptors, rdMolDescriptors,
-                        Mol, MolFromInchi, MolFromHELM, MolFromSequence, 
-                        MolFromSmiles, MolToInchi, MolToInchiKey, 
-                        MolToSmiles)
+from rdkit.Chem import (
+    Crippen, 
+    Descriptors, 
+    rdMolDescriptors,
+    Mol, 
+    MolFromInchi, 
+    MolFromHELM, 
+    MolFromSequence, 
+    MolFromSmiles, 
+    MolToInchi, 
+    MolToInchiKey, 
+    MolToSmiles,
+    SanitizeFlags,
+    SanitizeMol
+)
 from rdkit.Chem.Scaffolds.MurckoScaffold import MurckoScaffoldSmiles
 from requests import Session
 import selfies as sf
@@ -79,18 +90,31 @@ def _inchi2mol(s: str) -> Mol:
                         sanitize=True, 
                         removeHs=True)
 
+@return_none_on_error
+def sanitize_smiles_to_mol(s: str) -> Mol:
+    """Allow valence errors but check everything else."""
+    m = MolFromSmiles(s, sanitize=False)
+    m.UpdatePropertyCache(strict=False)
+    SanitizeMol(
+        m,
+        SanitizeFlags.SANITIZE_FINDRADICALS | SanitizeFlags.SANITIZE_KEKULIZE | SanitizeFlags.SANITIZE_SETAROMATICITY | SanitizeFlags.SANITIZE_SETCONJUGATION | SanitizeFlags.SANITIZE_SETHYBRIDIZATION | SanitizeFlags.SANITIZE_SYMMRINGS,
+        catchErrors=True,
+    )
+    return m
+
+
 @vectorize
 @return_none_on_error
 def _smiles2mol(s: str) -> Mol:
 
-    return MolFromSmiles(sanitize_smiles(s))
+    return sanitize_smiles_to_mol(s)
 
 
 @vectorize
 @return_none_on_error
 def _selfies2mol(s: str) -> Mol:
 
-    return MolFromSmiles(sf.decoder(s))
+    return sanitize_smiles_to_mol(sf.decoder(s))
 
 
 @vectorize

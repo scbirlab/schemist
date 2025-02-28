@@ -9,11 +9,12 @@ from pandas import DataFrame, Series
 import numpy as np
 from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
+from rdkit.Chem import Mol
 
 try:
-    from rdkit.Chem.AllChem import FingeprintGenerator64 as FingerprintGenerator64, GetMorganGenerator, Mol
+    from rdkit.Chem.AllChem import FingeprintGenerator64 as FingerprintGenerator64, GetMorganGenerator
 except ImportError: # typo in some rdkit versions
-    from rdkit.Chem.AllChem import FingerprintGenerator64, GetMorganGenerator, Mol
+    from rdkit.Chem.rdFingerprintGenerator import FingerprintGenerator64, GetMorganGenerator
 
 from .converting import _smiles2mol, _convert_input_to_smiles
 
