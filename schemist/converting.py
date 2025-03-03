@@ -97,7 +97,7 @@ def _inchi2mol(s: str) -> Mol:
 # def _smiles2mol(s: str) -> Mol:
 
 #     return sanitize_smiles_to_mol(s)
-_smiles2mol = vectorize(sanitize_smiles_to_mol)
+_smiles2mol = vectorize(return_none_on_error(sanitize_smiles_to_mol))
 
 @vectorize
 @return_none_on_error
