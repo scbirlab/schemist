@@ -1,5 +1,5 @@
 """
-sanifix4.py
+Updates to sanifix4.py (allowing wierd valencies)
 Original code from rdkit [James Davidson]
 """
 
@@ -13,7 +13,8 @@ from rdkit.Chem import (
     Mol,
     MolFromSmarts,
     MolToSmiles,
-    SanitizeMol
+    SanitizeFlags,
+    SanitizeMol,
 )
 
 RDLogger.DisableLog('rdApp.*')
@@ -122,10 +123,10 @@ def AdjustAromaticNs(m: Mol, nitrogenPattern:str = "[n&D2&H0;r5,r6]") -> Mol:
 
 def sanitize_allowing_valence_errors(m: Mol) -> Mol:
     """Allow valence errors but check everything else."""
+    m.UpdatePropertyCache(strict=False)
     SanitizeMol(
         m,
-        SanitizeFlags.SANITIZE_FINDRADICALS | SanitizeFlags.SANITIZE_KEKULIZE | SanitizeFlags.SANITIZE_SETAROMATICITY | SanitizeFlags.SANITIZE_SETCONJUGATION | SanitizeFlags.SANITIZE_SETHYBRIDIZATION | SanitizeFlags.SANITIZE_SYMMRINGS,
-        catchErrors=True,
+        SanitizeFlags.SANITIZE_ALL - SanitizeFlags.SANITIZE_PROPERTIES,
     )
     return m
 
@@ -136,7 +137,7 @@ def sanifix(m: Mol) -> Mol:
     try:
         m.UpdatePropertyCache(False)
         cp = Mol(m.ToBinary())
-        SanitizeMol(cp)
+        sanitize_allowing_valence_errors(cp)
     except ValueError as e:
         print_err(f"{MolToSmiles(m)}: attempting fix: {e}")
         try:

@@ -8,11 +8,11 @@ from rdkit.Chem import (
 )
 import selfies as sf
 
-from .sanifix4 import sanifix
+from .sanifix5 import sanifix
 
 # @return_none_on_error
 def sanitize_smiles_to_mol(s: str) -> Mol:
-    """Apply sanifix4.
+    """Apply sanifix5.
     
     """
     m = MolFromSmiles(s, sanitize=False)
