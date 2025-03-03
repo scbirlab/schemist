@@ -31,6 +31,7 @@ from rdkit.Chem.Scaffolds.MurckoScaffold import MurckoScaffoldSmiles
 from requests import Session
 import selfies as sf
 
+from .cleaning import sanitize_smiles_to_mol
 from .rest_lookup import _inchikey2pubchem_name_id, _inchikey2cactus_name
 
 @vectorize
@@ -90,25 +91,13 @@ def _inchi2mol(s: str) -> Mol:
                         sanitize=True, 
                         removeHs=True)
 
-@return_none_on_error
-def sanitize_smiles_to_mol(s: str) -> Mol:
-    """Allow valence errors but check everything else."""
-    m = MolFromSmiles(s, sanitize=False)
-    m.UpdatePropertyCache(strict=False)
-    SanitizeMol(
-        m,
-        SanitizeFlags.SANITIZE_FINDRADICALS | SanitizeFlags.SANITIZE_KEKULIZE | SanitizeFlags.SANITIZE_SETAROMATICITY | SanitizeFlags.SANITIZE_SETCONJUGATION | SanitizeFlags.SANITIZE_SETHYBRIDIZATION | SanitizeFlags.SANITIZE_SYMMRINGS,
-        catchErrors=True,
-    )
-    return m
 
+# @vectorize
+# @return_none_on_error
+# def _smiles2mol(s: str) -> Mol:
 
-@vectorize
-@return_none_on_error
-def _smiles2mol(s: str) -> Mol:
-
-    return sanitize_smiles_to_mol(s)
-
+#     return sanitize_smiles_to_mol(s)
+_smiles2mol = vectorize(return_none_on_error(sanitize_smiles_to_mol))
 
 @vectorize
 @return_none_on_error

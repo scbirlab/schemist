@@ -16,7 +16,8 @@ try:
 except ImportError: # typo in some rdkit versions
     from rdkit.Chem.rdFingerprintGenerator import FingerprintGenerator64, GetMorganGenerator
 
-from .converting import _smiles2mol, _convert_input_to_smiles
+from .cleaning import clean_smiles
+from .converting import _mol2x, _smiles2mol, _convert_input_to_smiles
 
 def _feature_matrix(f: Callable[[Any], DataFrame]) -> Callable[[Any], Union[DataFrame, Tuple[np.ndarray, np.ndarray]]]:
 
@@ -39,11 +40,13 @@ def _feature_matrix(f: Callable[[Any], DataFrame]) -> Callable[[Any], Union[Data
 
 def _get_descriptastorus_features(
     smiles: Iterable[str], 
-    generator: str
+    generator: str = "RDKit2DHistogramNormalized"
 ) -> Union[DataFrame, Tuple[np.ndarray, List[str]]]:
 
     generator = MakeGenerator((generator, ))
-    features = [generator.processMol(_smiles2mol(s), s) for s in smiles] 
+    smiles = cast(clean_smiles(smiles), to=list)
+    mols = cast(_smiles2mol(smiles), to=list)
+    features = generator.processMols(mols, smiles)
     return np.stack(features, axis=0), [col for col, _ in generator.GetColumns()]
 
 
@@ -100,6 +103,9 @@ def calculate_2d_features(
     >>> s = "O=S(=O)(OCC1OC(OC2(COS(=O)(=O)O[AlH3](O)O)OC(COS(=O)(=O)O[AlH3](O)O)C(OS(=O)(=O)O[AlH3](O)O)C2OS(=O)(=O)O[AlH3](O)O)C(OS(=O)(=O)O[AlH3](O)O)C(OS(=O)(=O)O[AlH3](O)O)C1OS(=O)(=O)O[AlH3](O)O)O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O"
     >>> calculate_2d_features(strings=s)[0].shape
     (1, 200)
+    >>> s = 'CCc1c(C(=O)N2CC(c3nnc4c3CCC4)C2)nc(C)c1C(=O)OC'
+    >>> calculate_2d_features(strings=s)[1]
+    array([1.])
 
     """  
 
