@@ -1,5 +1,5 @@
 """
-sanifix4.py
+Updates to sanifix4.py (allowing wierd valencies)
 Original code from rdkit [James Davidson]
 """
 
