@@ -17,7 +17,7 @@ except ImportError: # typo in some rdkit versions
     from rdkit.Chem.rdFingerprintGenerator import FingerprintGenerator64, GetMorganGenerator
 
 from .cleaning import clean_smiles
-from .converting import _mol2x, _x2mol, _convert_input_to_smiles
+from .converting import _mol2x, _smiles2mol, _convert_input_to_smiles
 
 def _feature_matrix(f: Callable[[Any], DataFrame]) -> Callable[[Any], Union[DataFrame, Tuple[np.ndarray, np.ndarray]]]:
 
@@ -45,7 +45,7 @@ def _get_descriptastorus_features(
 
     generator = MakeGenerator((generator, ))
     smiles = cast(clean_smiles(smiles), to=list)
-    mols = cast(_x2mol(smiles), to=list)
+    mols = cast(_smiles2mol(smiles), to=list)
     features = generator.processMols(mols, smiles)
     return np.stack(features, axis=0), [col for col, _ in generator.GetColumns()]
 
