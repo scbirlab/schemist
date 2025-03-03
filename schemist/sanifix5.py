@@ -120,6 +120,16 @@ def AdjustAromaticNs(m: Mol, nitrogenPattern:str = "[n&D2&H0;r5,r6]") -> Mol:
     return m
 
 
+def sanitize_allowing_valence_errors(m: Mol) -> Mol:
+    """Allow valence errors but check everything else."""
+    SanitizeMol(
+        m,
+        SanitizeFlags.SANITIZE_FINDRADICALS | SanitizeFlags.SANITIZE_KEKULIZE | SanitizeFlags.SANITIZE_SETAROMATICITY | SanitizeFlags.SANITIZE_SETCONJUGATION | SanitizeFlags.SANITIZE_SETHYBRIDIZATION | SanitizeFlags.SANITIZE_SYMMRINGS,
+        catchErrors=True,
+    )
+    return m
+
+
 def sanifix(m: Mol) -> Mol:
     if m is None:
         return None
@@ -132,7 +142,7 @@ def sanifix(m: Mol) -> Mol:
         try:
             m = AdjustAromaticNs(m)
             if m is not None:
-                SanitizeMol(m)
+                sanitize_allowing_valence_errors(m)
             return m
         except Exception as ee:
             print_err(f"{MolToSmiles(m)}: failed: {ee}")
