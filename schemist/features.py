@@ -228,8 +228,19 @@ def calculate_fingerprints(
     else:
         raise NotImplementedError(f"Fingerprint type {fp_type} not supported!")
     
-    fp_generator = generator_class(radius=radius, 
-                                   includeChirality=chiral)
+    fp_generator = generator_class(
+        radius=radius, 
+        includeChirality=chiral,
+    )
+    try:
+        fp_size = fp_generator.GetOptions().fpSize
+    except AttributeError:  # 'FingerprintGenerator64' object has no attribute 'GetOptions' in older rdkit versions (e.g.2022.9.5)
+        test_smiles = "CCCC"
+        fp_size = _fast_fingerprint(
+            fp_generator, 
+            _smiles2mol(test_smiles), 
+            to_np=True,
+        ).size
     strings = cast(strings, to=list)
     mols = (_smiles2mol(s) for s in strings)
     fp_strings = (_fast_fingerprint(fp_generator, mol, to_np=on_bits) 
@@ -246,7 +257,7 @@ def calculate_fingerprints(
         
         fingerprints = [np.array([int(digit) for digit in fp_string]) 
                         if fp_string is not None 
-                        else (-np.ones((fp_generator.GetOptions().fpSize, )))
+                        else (-np.ones((fp_size, )))
                         for fp_string in fp_strings]
         validity = [np.all(fp >= 0) for fp in fingerprints]
         
