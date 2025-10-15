@@ -9,7 +9,7 @@ except ImportError:
     from carabiner.itertools import batched
 
 from carabiner.cast import cast
-from pandas import DataFrame, concat
+from pandas import DataFrame, Index, concat
 
 from .cleaning import clean_smiles, clean_selfies
 from .converting import convert_string_representation
@@ -96,15 +96,55 @@ def cleaner(df: DataFrame,
     return _get_error_tally(df, new_column), df
 
 
-def featurizer(df: DataFrame, 
-               feature_type: str,
-               column: str = 'smiles',
-               ids: Optional[Union[str, List[str]]] = None,
-               input_representation: str = 'smiles',
-               prefix: Optional[str] = None) -> Tuple[Dict[str, int], DataFrame]:
+def featurizer(
+    df: DataFrame, 
+    feature_type: str,
+    column: str = 'smiles',
+    ids: Optional[Union[str, Iterable[str]]] = None,
+    input_representation: str = 'smiles',
+    prefix: Optional[str] = None
+) -> Tuple[Dict[str, int], DataFrame]:
     
-    """
-    
+    """Generate a feature table based on a column of the input dataframe.
+
+    Examples
+    ========
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({"a": [1,2,3], "b": ["A", "B", "C"], "smiles": ["C", "CCC", "CCCO"]})
+    >>> valid, fps = featurizer(df, "fp")
+    >>> fps  # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+            a  b ... meta_feature_type  meta_feature_valid
+    smiles       ...                                      
+    C       1  A ...            morgan                True
+    CCC     2  B ...            morgan                True
+    CCCO    3  C ...            morgan                True
+    <BLANKLINE>
+    [3 rows x 6 columns]
+    >>> featurizer(df, "fp", ids="b")[-1]  # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+            b  ...  meta_feature_valid
+    smiles     ...                    
+    C       A  ...                True
+    CCC     B  ...                True
+    CCCO    C  ...                True
+    <BLANKLINE>
+    [3 rows x 4 columns]
+    >>> featurizer(df, "fp", ids=["a", "b"])[-1]  # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+            a  ...  meta_feature_valid
+    smiles     ...                    
+    C       1  ...                True
+    CCC     2  ...                True
+    CCCO    3  ...                True
+    <BLANKLINE>
+    [3 rows x 5 columns]
+    >>> featurizer(df, "2d", ids=["a", "b"])[-1]  # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+            a  b  ...  meta_feature_valid
+    smiles        ...                    
+    C       1  A  ...                True
+    CCC     2  B  ...                True
+    CCCO    3  C  ...                True
+    <BLANKLINE>
+    [3 rows x 204 columns]
+
     """
 
     if ids is None:
@@ -112,16 +152,24 @@ def featurizer(df: DataFrame,
     else:
         ids = cast(ids, to=list)
 
-    feature_df = calculate_feature(feature_type=feature_type,
-                                   strings=_get_column_values(df, column), 
-                                   prefix=prefix,
-                                   input_representation=input_representation,
-                                   return_dataframe=True)
+    strings = _get_column_values(df, column)
+    feature_df = calculate_feature(
+        feature_type=feature_type,
+        strings=strings, 
+        prefix=prefix,
+        input_representation=input_representation,
+        return_dataframe=True,
+    )
+    feature_df = feature_df.reset_index(drop=True)
     
     if len(ids) > 0:
-        df = concat([df[ids], feature_df], axis=1)
+        feature_df = concat(
+            [df[ids], feature_df], 
+            axis=1,
+        )
+    feature_df.index = Index(strings, name=column)
 
-    return _get_error_tally(feature_df, 'meta_feature_valid'), df
+    return _get_error_tally(feature_df, 'meta_feature_valid'), feature_df
 
 
 def assign_groups(df: DataFrame, 
