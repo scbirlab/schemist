@@ -26,10 +26,14 @@ def _mutate_df_stream(input_file: Union[str, TextIO],
     
     carries = []
 
-    for i, chunk in tenumerate(read_table(input_file, 
-                                          format=file_format,
-                                          progress=False,
-                                          chunksize=chunksize)):
+    for i, chunk in tenumerate(
+        read_table(
+            input_file, 
+            format=file_format,
+            progress=False,
+            chunksize=chunksize,
+        )
+    ):
         
         result = function(chunk)
 
@@ -39,11 +43,13 @@ def _mutate_df_stream(input_file: Union[str, TextIO],
             df = result
             carry = 0
         
-        write_stream(df, 
-                     output=output_file,
-                     format=file_format,
-                     header=i == 0,
-                     mode='w' if i == 0 else 'a')
+        write_stream(
+            df, 
+            output=output_file,
+            format=file_format,
+            header=i == 0,
+            mode='w' if i == 0 else 'a',
+        )
         
         carries.append(carry)
 
