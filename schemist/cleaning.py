@@ -20,6 +20,7 @@ def sanitize_smiles_to_mol(s: str) -> Mol:
 
 
 @vectorize
+@return_none_on_error
 def clean_smiles(smiles: str, 
                  *args, **kwargs) -> str:
     """Sanitize a SMILES string or list of SMILES strings.

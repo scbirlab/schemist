@@ -223,16 +223,15 @@ def _mol2tpsa(m: Mol,
 
 def _mol2pubchem(m: Union[Mol, Iterable[Mol]],
                  session: Optional[Session] = None,
-                 chunksize: int = 32) -> List[Dict[str, Union[None, int, str]]]:
+                 chunksize: int = 16) -> List[Dict[str, Union[None, int, str]]]:
     
     inchikeys = cast(_mol2inchikey(m), to=list)
     pubchem_ids = []
 
     for _inchikeys in batched(inchikeys, chunksize):
-
-        these_ids = _inchikey2pubchem_name_id(_inchikeys, 
-                                              session=session)
-        pubchem_ids += these_ids
+        pubchem_ids += _inchikey2pubchem_name_id(
+            _inchikeys,
+        )
 
     return pubchem_ids
 

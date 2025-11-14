@@ -14,7 +14,7 @@ from carabiner.cliutils import clicommand, CLIOption, CLICommand, CLIApp
 from carabiner.itertools import tenumerate
 from carabiner.pd import get_formats, write_stream
 
-from . import __version__
+from . import app_name, __version__
 from .collating import collate_inventory, deduplicate_file
 from .converting import _TO_FUNCTIONS, _FROM_FUNCTIONS
 from .generating import AA, REACTIONS
@@ -112,15 +112,19 @@ def _convert(args: Namespace) -> None:
 @clicommand(message="Adding features to files with the following parameters")
 def _featurize(args: Namespace) -> None:
     
-    error_tallies = _mutate_df_stream(input_file=args.input, 
-                                      output_file=args.output, 
-                                      function=partial(featurizer,
-                                                       feature_type=args.feature,
-                                                       column=args.column, 
-                                                       ids=args.id,
-                                                       input_representation=args.representation, 
-                                                       prefix=args.prefix),
-                                      file_format=args.format)
+    error_tallies = _mutate_df_stream(
+        input_file=args.input, 
+        output_file=args.output, 
+        function=partial(
+            featurizer,
+            feature_type=args.feature,
+            column=args.column, 
+            ids=args.id,
+            input_representation=args.representation, 
+            prefix=args.prefix,
+        ),
+        file_format=args.format,
+    )
     
     _sum_tally(error_tallies)
 
@@ -346,11 +350,13 @@ def main() -> None:
                         default=None,
                         nargs='*',
                         help='Columns to retain in output table. Default: use all')
-    feature = CLIOption('--feature', '-t', 
-                           type=str,
-                           default='2d',
-                           choices=['2d', 'fp'],  ## TODO: implement 3d
-                           help='Which feature type to generate.')
+    feature = CLIOption(
+        '--feature', '-t', 
+        type=str,
+        default='2d',
+        choices=['2d', '3d', 'fp'],
+        help='Which feature type to generate.',
+    )
 
     ## split
     type_ = CLIOption('--type', '-t', 
@@ -520,7 +526,7 @@ def main() -> None:
                          options=[output, formatting, inputs, representation, column, prefix,
                                   type_, train, test, set_seed])
 
-    app = CLIApp("schemist",
+    app = CLIApp(app_name,
                  version=__version__,
                  description="Tools for cleaning, collating, and augmenting chemical datasets.",
                  commands=[clean, convert, featurize, collate, dedup, enum, reaction, split])

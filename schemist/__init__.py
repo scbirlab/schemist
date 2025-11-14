@@ -1,3 +1,5 @@
 from importlib.metadata import version
 
-__version__ = version("schemist")
+app_name = "schemist"
+__author__ = "Eachan Johnson"
+__version__ = version(app_name)
