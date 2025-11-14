@@ -1,7 +1,7 @@
 """Tools for generating chemical features."""
 
 from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
-from functools import wraps
+from functools import cache, wraps
 
 from carabiner.cast import cast
 from carabiner.decorators import return_none_on_error, vectorize
@@ -147,6 +147,7 @@ def calculate_2d_features(
         return feature_matrix[:,1:], feature_matrix[:,0]
 
 
+@cache
 def smiles_to_3d(
     smiles: str,
     seed: int = 42
