@@ -42,6 +42,7 @@ dependencies = [
 
 [project.optional-dependencies]
 old_glibc = ["rdkit-pypi==2022.09.5"]
+dev = ["pytest", "flake8"]
 
 [project.urls]
 "Homepage" = "https://github.com/scbirlab/schemist"
