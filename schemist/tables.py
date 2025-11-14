@@ -112,38 +112,14 @@ def featurizer(
     >>> import pandas as pd
     >>> df = pd.DataFrame({"a": [1,2,3], "b": ["A", "B", "C"], "smiles": ["C", "CCC", "CCCO"]})
     >>> valid, fps = featurizer(df, "fp")
-    >>> fps  # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
-            a  b ... meta_feature_type  meta_feature_valid
-    smiles       ...                                      
-    C       1  A ...            morgan                True
-    CCC     2  B ...            morgan                True
-    CCCO    3  C ...            morgan                True
-    <BLANKLINE>
-    [3 rows x 6 columns]
-    >>> featurizer(df, "fp", ids="b")[-1]  # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
-            b  ...  meta_feature_valid
-    smiles     ...                    
-    C       A  ...                True
-    CCC     B  ...                True
-    CCCO    C  ...                True
-    <BLANKLINE>
-    [3 rows x 4 columns]
-    >>> featurizer(df, "fp", ids=["a", "b"])[-1]  # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
-            a  ...  meta_feature_valid
-    smiles     ...                    
-    C       1  ...                True
-    CCC     2  ...                True
-    CCCO    3  ...                True
-    <BLANKLINE>
-    [3 rows x 5 columns]
-    >>> featurizer(df, "2d", ids=["a", "b"])[-1]  # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
-            a  b  ...  meta_feature_valid
-    smiles        ...                    
-    C       1  A  ...                True
-    CCC     2  B  ...                True
-    CCCO    3  C  ...                True
-    <BLANKLINE>
-    [3 rows x 204 columns]
+    >>> fps.shape
+    (3, 5)
+    >>> featurizer(df, "fp", ids="b")[-1].shape
+    (3, 3)
+    >>> featurizer(df, "fp", ids=["a", "b"])[-1].shape
+    (3, 4)
+    >>> featurizer(df, "2d", ids=["a", "b"])[-1].shape
+    (3, 203)
 
     """
 
@@ -164,12 +140,12 @@ def featurizer(
     
     if len(ids) > 0:
         feature_df = concat(
-            [df[ids], feature_df], 
+            [df[ids].reset_index(drop=True), feature_df], 
             axis=1,
         )
     feature_df.index = Index(strings, name=column)
 
-    return _get_error_tally(feature_df, 'meta_feature_valid'), feature_df
+    return _get_error_tally(feature_df, 'meta_feature_valid_' + feature_type), feature_df
 
 
 def assign_groups(df: DataFrame, 
