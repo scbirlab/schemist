@@ -2,12 +2,13 @@
 
 from typing import Dict, Iterable, List, Optional, Union
 from time import sleep
-from xml.etree import ElementTree
 
 from carabiner import print_err
 from carabiner.cast import cast
 from carabiner.decorators import vectorize
 from requests import Response, Session
+
+from .http import api_get
 
 _PUBCHEM_URL = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/inchikey/{inchikey}/property/{get}/{format}"
 _CACTUS_URL = "https://cactus.nci.nih.gov/chemical/structure/{inchikey}/{get}"
@@ -28,63 +29,36 @@ def _url_request(inchikeys: Union[str, Iterable[str]],
     return session.get(url.format(inchikey=','.join(inchikeys), **kwargs))
 
 
-def _inchikey2pubchem_name_id(inchikeys: Union[str, Iterable[str]], 
-                        session: Optional[Session] = None, 
-                        counter: int = 0, 
-                        max_tries: int = 10,
-                        namespace: str = "{http://pubchem.ncbi.nlm.nih.gov/pug_rest}") -> List[Dict[str, Union[None, int, str]]]:
+@api_get(
+    url="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/inchikey/{query}/property/Title,InchiKey/json",
+    allow_error=True,
+)
+def _inchikey2pubchem_name_id(
+    query, 
+    r: Response
+) -> List[Dict[str, Union[None, int, str]]]:
 
-    r = _url_request(inchikeys, url=_PUBCHEM_URL, 
-                     session=session, 
-                     get="Title,InchiKey", format="XML")
+    j = r.json()
+    query = query.split(",")
+    defaults = {"pubchem_name": None, "pubchem_id": None}
+    if "Fault" in j or r.status_code == 404 or r.status_code in _OVERLOAD_CODES:
+        return [defaults for _ in range(len(query))]
 
-    if r.status_code == 200:
+    compounds = j["PropertyTable"]["Properties"]
+    results = []
+    for inchikey in query:
+        this_result = [item for item in compounds if item["InChIKey"] == inchikey]
 
-        root = ElementTree.fromstring(r.text)
-        compounds = root.iter(f'{namespace}Properties')
-
-        result_dict = dict()
-        
-        for cmpd in compounds:
-            
-            cmpd_dict = dict()
-            
-            for child in cmpd:
-                cmpd_dict[child.tag.split(namespace)[1]] = child.text
-            
-            try:
-                inchikey, name, pcid = cmpd_dict['InChIKey'], cmpd_dict['Title'], cmpd_dict['CID']
-            except KeyError:
-                print(cmpd_dict)
-            else:
-                result_dict[inchikey] = {'pubchem_name': name.casefold(), 
-                                         'pubchem_id': pcid}
-
-        print_err(f'PubChem: Looked up InchiKeys: {",".join(inchikeys)}')
-  
-        result_list = [result_dict[inchikey] 
-                       if inchikey in result_dict 
-                       else {'pubchem_name': None, 'pubchem_id': None}
-                       for inchikey in inchikeys]
-
-        return result_list
-
-    elif r.status_code in _OVERLOAD_CODES and counter < max_tries:
-
-        sleep(1.)
-
-        return _inchikey2pubchem_name_id(inchikeys, 
-                                         session=session, 
-                                         counter=counter + 1, 
-                                         max_tries=max_tries, 
-                                         namespace=namespace)
-
-    else:
-        
-        print_err(f'PubChem: InchiKey {",".join(inchikeys)} gave status {r.status_code}')
-        
-        return [{'pubchem_name': None, 'pubchem_id': None} 
-                for _ in range(len(inchikeys))]
+        if len(this_result) > 0:
+            this_result = this_result[0]
+            name = this_result.get('Title')
+            results.append({
+                "pubchem_name": name.casefold() if name else None, 
+                "pubchem_id": this_result.get('CID'),
+            })
+        else:
+            results.append(defaults)
+    return results
 
 
 @vectorize
@@ -115,4 +89,3 @@ def _inchikey2cactus_name(inchikeys: str,
         print_err(f'Cactus: InchiKey {",".join(inchikeys)} gave status {r.status_code}')
         
         return None
-
