@@ -1,6 +1,6 @@
 """Command-line interface for schemist."""
 
-from typing import Any, Dict, List, Optional
+from collections.abc import Iterable
 
 from argparse import FileType, Namespace
 from collections import Counter, defaultdict
@@ -15,15 +15,23 @@ from carabiner.itertools import tenumerate
 from carabiner.pd import get_formats, write_stream
 
 from . import app_name, __version__
-from .collating import collate_inventory, deduplicate_file
+
 from .converting import _TO_FUNCTIONS, _FROM_FUNCTIONS
 from .generating import AA, REACTIONS
 from .io import _mutate_df_stream
-from .tables import (converter, cleaner, featurizer, assign_groups, 
-                     _assign_splits, splitter, _peptide_table, reactor)
+from .tables import (
+    converter, 
+    cleaner, 
+    featurizer, 
+    assign_groups, 
+    _assign_splits, 
+    splitter, 
+    _peptide_table, 
+    reactor,
+)
 from .splitting import _SPLITTERS, _GROUPED_SPLITTERS
 
-def _option_parser(x: Optional[List[str]]) -> Dict[str, Any]:
+def _option_parser(x: Iterable[str] | None) -> dict[str, ...]:
 
     options = {}
 
@@ -52,9 +60,11 @@ def _option_parser(x: Optional[List[str]]) -> Dict[str, Any]:
     return options
 
 
-def _sum_tally(tallies: Counter, 
-               message: str = "Error counts",
-               use_length: bool = False):
+def _sum_tally(
+    tallies: Counter, 
+    message: str = "Error counts",
+    use_length: bool = False
+) -> dict[str, int]:
 
     total_tally = Counter()
     
@@ -122,6 +132,10 @@ def _featurize(args: Namespace) -> None:
             ids=args.id,
             input_representation=args.representation, 
             prefix=args.prefix,
+            n_conformers=args.conformers,
+            n_threads=args.threads,
+            minimize=args.minimize,
+            z=args.zscore,
         ),
         file_format=args.format,
     )
@@ -197,6 +211,7 @@ def _split(args: Namespace) -> None:
 
 @clicommand(message="Collating files with the following parameters")
 def _collate(args: Namespace) -> None:
+    from .collating import collate_inventory, deduplicate_file
     
     root_dir = args.data_dir or '.'
     
@@ -357,6 +372,28 @@ def main() -> None:
         choices=['2d', '3d', 'fp'],
         help='Which feature type to generate.',
     )
+    n_conformers = CLIOption(
+        '--conformers', '-k', 
+        type=int,
+        default=1,
+        help='Number of conformers for 3D descriptors.',
+    )
+    n_threads = CLIOption(
+        '--threads', '-j', 
+        type=int,
+        default=1,
+        help='Number of parallel threads for 3D descriptors. 0 means use all available.',
+    )
+    _minimize = CLIOption(
+        '--minimize', '-0',
+        action="store_true",
+        help='Use MMFF94 minimization for 3D descriptors.',
+    )
+    zscore = CLIOption(
+        '--zscore', '-z',
+        action="store_true",
+        help='Z-score 3D descriptors across conformers.',
+    )
 
     ## split
     type_ = CLIOption('--type', '-t', 
@@ -484,11 +521,25 @@ def main() -> None:
                          description='Convert between string representations of chemical structures.',
                          main=_convert,
                          options=[output, formatting, inputs, representation, column, prefix, to, options])
-    featurize = CLICommand('featurize', 
-                         description='Convert between string representations of chemical structures.',
-                         main=_featurize,
-                         options=[output, formatting, inputs, representation, column, prefix,
-                                  id_feat, feature])
+    featurize = CLICommand(
+        'featurize', 
+        description='Convert between string representations of chemical structures.',
+        main=_featurize,
+        options=[
+            output, 
+            formatting, 
+            inputs, 
+            representation, 
+            column, 
+            prefix,
+            id_feat, 
+            feature,
+            n_conformers,
+            _minimize,
+            zscore,
+            n_threads,
+        ],
+    )
     collate = CLICommand('collate', 
                          description='Collect disparate tables or SDF files of libraries into a single table.',
                          main=_collate,

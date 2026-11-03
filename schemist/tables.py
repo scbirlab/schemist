@@ -1,15 +1,20 @@
 """Tools for processing tabular data."""
 
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
+from collections.abc import Callable, Iterable, Mapping
 from functools import partial
 
 try:
     from itertools import batched
 except ImportError:
     from carabiner.itertools import batched
-
 from carabiner.cast import cast
-from pandas import DataFrame, Index, concat
+
+
+if TYPE_CHECKING:
+    from pandas import DataFrame
+else:
+    DataFrame = Any
 
 from .cleaning import clean_smiles, clean_selfies
 from .converting import convert_string_representation
@@ -18,8 +23,11 @@ from .generating import sample_peptides_in_length_range, react
 from .splitting import split
 from .typing import DataSplits
 
-def _get_column_values(df: DataFrame, 
-                       column: Union[str, List[str]]):
+
+def _get_column_values(
+    df: DataFrame, 
+    column: Union[str, list[str]]
+):
 
     try:
         column_values = df[column]
@@ -30,7 +38,7 @@ def _get_column_values(df: DataFrame,
 
 
 def _get_error_tally(df: DataFrame, 
-                     cols: Union[str, List[str]]) -> Dict[str, int]:
+                     cols: Union[str, list[str]]) -> dict[str, int]:
 
     cols = cast(cols, to=list)
 
@@ -47,7 +55,7 @@ def converter(df: DataFrame,
               input_representation: str = 'smiles',
               output_representation: Union[str, Iterable[str]] = 'smiles',
               prefix: Optional[str] = None,
-              options: Optional[Mapping[str, Any]] = None) -> Tuple[Dict[str, int], DataFrame]:
+              options: Optional[Mapping[str, Any]] = None) -> tuple[dict[str, int], DataFrame]:
     
     """
     
@@ -75,7 +83,7 @@ def converter(df: DataFrame,
 def cleaner(df: DataFrame, 
             column: str = 'smiles',
             input_representation: str = 'smiles',
-            prefix: Optional[str] = None) -> Tuple[Dict[str, int], DataFrame]:
+            prefix: Optional[str] = None) -> tuple[dict[str, int], DataFrame]:
     
     """
     
@@ -100,10 +108,11 @@ def featurizer(
     df: DataFrame, 
     feature_type: str,
     column: str = 'smiles',
-    ids: Optional[Union[str, Iterable[str]]] = None,
+    ids: str | Iterable[str] | None = None,
     input_representation: str = 'smiles',
-    prefix: Optional[str] = None
-) -> Tuple[Dict[str, int], DataFrame]:
+    prefix: str | None = None,
+    **kwargs
+) -> tuple[dict[str, int], DataFrame]:
     
     """Generate a feature table based on a column of the input dataframe.
 
@@ -122,6 +131,7 @@ def featurizer(
     (3, 203)
 
     """
+    from pandas import Index, concat
 
     if ids is None:
         ids = df.columns.tolist()
@@ -135,6 +145,7 @@ def featurizer(
         prefix=prefix,
         input_representation=input_representation,
         return_dataframe=True,
+        **kwargs,
     )
     feature_df = feature_df.reset_index(drop=True)
     
@@ -149,11 +160,11 @@ def featurizer(
 
 
 def assign_groups(df: DataFrame, 
-                  grouper: Callable[[Union[str, Iterable[str]]], Dict[str, Tuple[int]]],
+                  grouper: Callable[[Union[str, Iterable[str]]], dict[str, tuple[int]]],
                   group_name: str = 'group',
                   column: str = 'smiles', 
                   input_representation: str = 'smiles',
-                  *args, **kwargs) -> Tuple[Dict[str, Tuple[int]], DataFrame]:
+                  *args, **kwargs) -> tuple[dict[str, tuple[int]], DataFrame]:
     
     group_idx = grouper(strings=_get_column_values(df, column), 
                         input_representation=input_representation,
@@ -182,7 +193,7 @@ def splitter(df: DataFrame,
              split_type: str = 'random', 
              column: str = 'smiles', 
              input_representation: str = 'smiles',
-             *args, **kwargs) -> Tuple[Dict[str, int], DataFrame]:
+             *args, **kwargs) -> tuple[dict[str, int], DataFrame]:
     
     """
     
@@ -200,7 +211,7 @@ def reactor(df: DataFrame,
             column: str = 'smiles', 
             reaction: Union[str, Iterable[str]] = 'N_to_C_cyclization', 
             prefix: Optional[str] = None,
-            *args, **kwargs) -> Tuple[Dict[str, int], DataFrame]:
+            *args, **kwargs) -> tuple[dict[str, int], DataFrame]:
     
     """
     
