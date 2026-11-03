@@ -235,6 +235,8 @@ def _collate(args: Namespace) -> None:
 @clicommand(message="Deduplicating chemical structures with the following parameters")
 def _dedup(args: Namespace) -> None:
 
+    from .collating import deduplicate_file
+
     report, deduped_df = deduplicate_file(args.input,
                                       format=args.format,
                                       column=args.column, 
