@@ -1,7 +1,7 @@
 """Converting between chemical representation formats."""
 
-from typing import Any, Callable, Dict, Iterable, List, Optional, Union
-
+from typing import TYPE_CHECKING, Any, Optional, Union
+from collections.abc import Callable, Iterable
 from functools import wraps
 
 from carabiner import print_err
@@ -11,7 +11,7 @@ from carabiner.itertools import batched
 
 # from datamol import sanitize_smiles
 import nemony as nm
-from pandas import DataFrame
+
 from rdkit.Chem import (
     Crippen, 
     Descriptors, 
@@ -19,17 +19,19 @@ from rdkit.Chem import (
     Mol, 
     MolFromInchi, 
     MolFromHELM, 
-    MolFromSequence, 
-    MolFromSmiles, 
+    MolFromSequence,
     MolToInchi, 
     MolToInchiKey, 
     MolToSmiles,
-    SanitizeFlags,
-    SanitizeMol
 )
 from rdkit.Chem.Scaffolds.MurckoScaffold import MurckoScaffoldSmiles
-from requests import Session
+
 import selfies as sf
+
+if TYPE_CHECKING:
+    from requests import Session
+else:
+    Session = Any
 
 from .cleaning import sanitize_smiles_to_mol
 from .rest_lookup import _inchikey2pubchem_name_id, _inchikey2cactus_name
@@ -48,7 +50,7 @@ def _helm2mol(s: str) -> Union[Mol, None]:
     return MolFromHELM(s, sanitize=True)
 
 
-def mini_helm2helm(s: str) -> List[str]:
+def mini_helm2helm(s: str) -> list[str]:
 
     new_s = []
     token = ''
@@ -223,7 +225,7 @@ def _mol2tpsa(m: Mol,
 
 def _mol2pubchem(m: Union[Mol, Iterable[Mol]],
                  session: Optional[Session] = None,
-                 chunksize: int = 16) -> List[Dict[str, Union[None, int, str]]]:
+                 chunksize: int = 16) -> list[dict[str, Union[None, int, str]]]:
     
     inchikeys = cast(_mol2inchikey(m), to=list)
     pubchem_ids = []
@@ -240,7 +242,7 @@ def _mol2pubchem(m: Union[Mol, Iterable[Mol]],
 def _mol2pubchem_id(m: Union[Mol, Iterable[Mol]],
                     session: Optional[Session] = None,
                     chunksize: int = 32,
-                    **kwargs) -> Union[str, List[str]]:
+                    **kwargs) -> Union[str, list[str]]:
 
     return flatten([val['pubchem_id'] 
                      for val in _mol2pubchem(m, 
@@ -252,7 +254,7 @@ def _mol2pubchem_id(m: Union[Mol, Iterable[Mol]],
 def _mol2pubchem_name(m: Union[Mol, Iterable[Mol]],
                       session: Optional[Session] = None,
                       chunksize: int = 32,
-                      **kwargs) -> Union[str, List[str]]:
+                      **kwargs) -> Union[str, list[str]]:
 
     return flatten([val['pubchem_name'] 
                      for val in _mol2pubchem(m, 
@@ -262,7 +264,7 @@ def _mol2pubchem_name(m: Union[Mol, Iterable[Mol]],
 @return_none_on_error
 def _mol2cactus_name(m: Union[Mol, Iterable[Mol]],
                      session: Optional[Session] = None,
-                     **kwargs) -> Union[str, List[str]]:
+                     **kwargs) -> Union[str, list[str]]:
 
     return _inchikey2cactus_name(_mol2inchikey(m), 
                                  session=session)
@@ -340,7 +342,7 @@ def convert_string_representation(
     input_representation: str = 'smiles', 
     output_representation: Union[Iterable[str], str] = 'smiles', 
     **kwargs
-) -> Union[str, None, Iterable[Union[str, None]], Dict[str, Union[str, None, Iterable[Union[str, None]]]]]:
+) -> Union[str, None, Iterable[Union[str, None]], dict[str, Union[str, None, Iterable[Union[str, None]]]]]:
     
     """Convert between string representations of chemical structures.
     

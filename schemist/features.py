@@ -1,34 +1,40 @@
 """Tools for generating chemical features."""
 
-from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
+from collections.abc import Callable, Iterable, Mapping
 from functools import cache, wraps
+from statistics import fmean, pstdev
 
 from carabiner.cast import cast
 from carabiner.decorators import return_none_on_error, vectorize
-from descriptastorus.descriptors import MakeGenerator
-from pandas import DataFrame, Series
+
 import numpy as np
 from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
-from rdkit.Chem import Mol
 
-try:
-    from rdkit.Chem.AllChem import FingeprintGenerator64 as FingerprintGenerator64, GetMorganGenerator
-except ImportError: # typo in some rdkit versions
-    from rdkit.Chem.rdFingerprintGenerator import FingerprintGenerator64, GetMorganGenerator
+if TYPE_CHECKING:
+    from pandas import DataFrame
+    from rdkit.Chem import Mol
+    try:
+        from rdkit.Chem.AllChem import FingeprintGenerator64 as FingerprintGenerator64
+    except ImportError: # typo in some rdkit versions
+        from rdkit.Chem.rdFingerprintGenerator import FingerprintGenerator64
+else:
+    DataFrame, FingerprintGenerator64, Mol = Any, Any, Any
 
 from .cleaning import clean_smiles
 from .converting import _x2mol, _mol2x, _smiles2mol, _convert_input_to_smiles
 
-def _feature_matrix(f: Callable[[Any], DataFrame]) -> Callable[[Any], Union[DataFrame, Tuple[np.ndarray, np.ndarray]]]:
+
+def _feature_matrix(f: Callable[[Any], DataFrame]) -> Callable[[Any], Union[DataFrame, tuple[np.ndarray, np.ndarray]]]:
 
     @wraps(f)
     def _f(prefix: Optional[str] = None,
-           *args, **kwargs) -> Union[DataFrame, Tuple[np.ndarray, np.ndarray]]:
-
+           *args, **kwargs) -> Union[DataFrame, tuple[np.ndarray, np.ndarray]]:
+        import pandas as pd
         feature_matrix = f(*args, **kwargs)
 
-        if prefix is not None and isinstance(feature_matrix, DataFrame):
+        if prefix is not None and isinstance(feature_matrix, pd.DataFrame):
             new_cols = {col: f"{prefix}_{col}" 
                         for col in feature_matrix.columns 
                         if not col.startswith('_meta')}
@@ -42,8 +48,8 @@ def _feature_matrix(f: Callable[[Any], DataFrame]) -> Callable[[Any], Union[Data
 def _get_descriptastorus_features(
     smiles: Iterable[str], 
     generator: str = "RDKit2DHistogramNormalized"
-) -> Union[DataFrame, Tuple[np.ndarray, List[str]]]:
-
+) -> Union[DataFrame, tuple[np.ndarray, list[str]]]:
+    from descriptastorus.descriptors import MakeGenerator
     generator = MakeGenerator((generator, ))
     smiles = cast(clean_smiles(smiles), to=list)
     mols = cast(_smiles2mol(smiles), to=list)
@@ -62,7 +68,7 @@ def calculate_2d_features(
     histogram_normalized: bool = True,
     return_dataframe: bool = False,
     *args, **kwargs
-) -> Union[DataFrame, Tuple[np.ndarray, np.ndarray]]:
+) -> Union[DataFrame, tuple[np.ndarray, np.ndarray]]:
 
     """Calculate 2d features from string representation.
 
@@ -113,6 +119,7 @@ def calculate_2d_features(
     array([1.])
 
     """  
+    import pandas as pd
 
     if normalized:
         if histogram_normalized:
@@ -129,7 +136,7 @@ def calculate_2d_features(
     )
 
     if return_dataframe:
-        feature_matrix = DataFrame(
+        feature_matrix = pd.DataFrame(
             feature_matrix, 
             index=strings,
             columns=columns,
@@ -138,8 +145,10 @@ def calculate_2d_features(
         feature_matrix = (
             feature_matrix
             .rename(columns={f"{generator_name}_calculated": "meta_feature_valid0"})
-            .assign(meta_feature_type=generator_name, 
-                    meta_feature_valid=lambda x: (x['meta_feature_valid0'] == 1.))
+            .assign(
+                meta_feature_type=generator_name, 
+                meta_feature_valid=lambda x: (x['meta_feature_valid0'] == 1.),
+            )
             .drop(columns=['meta_feature_valid0'])
         )
         return feature_matrix
@@ -148,29 +157,83 @@ def calculate_2d_features(
 
 
 @cache
+def _rdkit3d_descriptor_keys() -> tuple[str, ...]:
+    """Stable ordered key list for RDKit 3D descriptors.
+
+    We derive it from a simple reference mol once, then reuse.
+    """
+    from rdkit import Chem
+    from rdkit.Chem import AllChem
+    from rdkit.Chem.Descriptors3D import CalcMolDescriptors3D
+
+    m = Chem.MolFromSmiles("CCC")
+    m = Chem.AddHs(m)
+    params = AllChem.ETKDGv4()
+    params.randomSeed = 0
+    status = AllChem.EmbedMolecule(m, params)
+    if status != 0:
+        raise RuntimeError("Failed to embed reference mol for RDKit3D key discovery.")
+    d: Mapping[str, float] = CalcMolDescriptors3D(m)  # dict[str, float]
+    # Sort to ensure deterministic column order
+    return tuple(sorted(d))
+
+
+@cache
 def smiles_to_3d(
     smiles: str,
-    seed: int = 42
-) -> np.ndarray:
+    n_conformers: int = 1,
+    minimize: bool = False,
+    with_std: bool = False,
+    n_threads: int = 1,
+    seed: int = 42,
+    **kwargs
+) -> dict[str, ...]:
     from rdkit import Chem
     from rdkit.Chem import AllChem, Mol
     from rdkit.Chem.rdchem import AtomValenceException
     from rdkit.Chem.Descriptors3D import CalcMolDescriptors3D
+    keys = _rdkit3d_descriptor_keys()
     mol = _smiles2mol(clean_smiles(smiles))
+    default_result = [0.] * n_conformers
     if mol is not None:
-        params = AllChem.ETKDGv3()
+        params = AllChem.ETKDGv4()
         params.randomSeed = seed
-        Chem.AddHs(mol)
+        params.numThreads = n_threads
+        params.useSmallRingTorsions = True
+        mol2 = Chem.AddHs(mol)
         try:
-            AllChem.EmbedMolecule(mol, params)
-            desc = CalcMolDescriptors3D(mol)
+            cids = AllChem.EmbedMultipleConfs(
+                mol2, 
+                numConfs=n_conformers, 
+                params=params,
+            )
+            if not cids:
+                raise ValueError
+            if minimize:
+                res = AllChem.MMFFOptimizeMoleculeConfs(
+                    mol2, 
+                    numThreads=n_threads,
+                )
+            descs = []
+            for i in cids:
+                descs.append(CalcMolDescriptors3D(mol2, confId=i))
         except (ValueError, AtomValenceException):
-            desc = {"meta_feature_valid": False}
+            descs = {k: default_result for k in keys}
+            validity = False
         else:
-            desc["meta_feature_valid"] = True
-        return desc
+            descs = {key: [float(d.get(key, 0.)) for d in descs] for key in keys}
+            descs = {k: descs.get(k, default_result) for k in keys}
+            validity = True
     else:
-        return {"meta_feature_valid": False}
+        descs = {k: default_result for k in keys}
+        validity = False
+    
+    means = {key: fmean(val) for key, val in descs.items()}
+    if with_std and n_conformers > 1:
+        means |= {f"{key}_std": pstdev(val) for key, val in descs.items()}
+    means["meta_feature_valid"] = validity
+
+    return means
 
 
 @_feature_matrix
@@ -180,7 +243,7 @@ def calculate_3d_features(
     seed: int = 42,
     return_dataframe: bool = False,
     *args, **kwargs
-) -> Union[DataFrame, Tuple[np.ndarray, np.ndarray]]:
+) -> Union[DataFrame, tuple[np.ndarray, np.ndarray]]:
 
     """Calculate 3d features from string representation.
 
@@ -221,8 +284,11 @@ def calculate_3d_features(
     Name: meta_feature_valid, dtype: bool
     >>> ## Unusal valence
     >>> s = "O=S(=O)(OCC1OC(OC2(COS(=O)(=O)O[AlH3](O)O)OC(COS(=O)(=O)O[AlH3](O)O)C(OS(=O)(=O)O[AlH3](O)O)C2OS(=O)(=O)O[AlH3](O)O)C(OS(=O)(=O)O[AlH3](O)O)C(OS(=O)(=O)O[AlH3](O)O)C1OS(=O)(=O)O[AlH3](O)O)O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O"
-    >>> calculate_3d_features(strings=s)[0].shape
-    (1, 0)
+    >>> features, validity = calculate_3d_features(strings=s)
+    >>> features.shape
+    (1, 11)
+    >>> bool(validity[0])
+    False
     >>> s = 'CCc1c(C(=O)N2CC(c3nnc4c3CCC4)C2)nc(C)c1C(=O)OC'
     >>> sum(calculate_3d_features(strings=s)[1])
     1
@@ -233,10 +299,11 @@ def calculate_3d_features(
     
     strings = cast(strings, to=list)
     descriptors = [
-        smiles_to_3d(s) for s in strings
+        smiles_to_3d(s, **kwargs) 
+        for s in strings
     ]
             
-    feature_matrix = DataFrame(descriptors).fillna(0.)
+    feature_matrix = pd.DataFrame(descriptors).fillna(0.)
     if return_dataframe:
         feature_matrix.index = strings
         feature_matrix = (
@@ -279,7 +346,7 @@ def calculate_fingerprints(
     on_bits: bool = True,
     return_dataframe: bool = False,
     *args, **kwargs
-) -> Union[DataFrame, Tuple[np.ndarray, np.ndarray]]:
+) -> Union[DataFrame, tuple[np.ndarray, np.ndarray]]:
     
     """Calculate the binary fingerprint of string representation(s).
 
@@ -335,7 +402,9 @@ def calculate_fingerprints(
     Name: meta_feature_valid, dtype: bool
 
     """
-    
+    import pandas as pd
+    from rdkit.Chem.AllChem import GetMorganGenerator
+
     if fp_type.casefold() == 'morgan':
         generator_class = GetMorganGenerator
     else:
@@ -384,13 +453,13 @@ def calculate_fingerprints(
 
     if return_dataframe:
         if feature_matrix.ndim == 1:  # on_bits only
-            feature_matrix = DataFrame(
+            feature_matrix = pd.DataFrame(
                 feature_matrix, 
                 columns=['fp_bits'],
                 index=strings,
             )
         else:
-            feature_matrix = DataFrame(
+            feature_matrix = pd.DataFrame(
                 feature_matrix,
                 columns=[f"fp_{i}" for i, _ in enumerate(feature_matrix.T)],
                 index=strings,
@@ -410,9 +479,11 @@ _FEATURE_CALCULATORS = {
 }
 
 def calculate_feature(
-    feature_type: Union[str, Iterable[str]] = "all",
+    feature_type: str | Iterable[str] | None = "all",
     return_dataframe: bool = False,
-    *args, **kwargs) -> Union[DataFrame, Tuple[np.ndarray, np.ndarray]]:
+    *args, 
+    **kwargs
+) -> DataFrame | tuple[np.ndarray, np.ndarray]:
     
     """Calculate the binary fingerprint or descriptor vector of string representation(s).
     
@@ -433,8 +504,11 @@ def calculate_feature(
     feature_type = cast(feature_type, to=list)
     featurizers = {_type: _FEATURE_CALCULATORS[_type] for _type in feature_type}
     dfs = {
-        _type: f(*args, return_dataframe=return_dataframe, **kwargs)
-        for _type, f in featurizers.items()
+        _type: fn(
+            *args, 
+            return_dataframe=return_dataframe, 
+            **kwargs,
+        ) for _type, fn in featurizers.items()
     }
     if return_dataframe:
         import pandas as pd
@@ -446,4 +520,8 @@ def calculate_feature(
             for _type, _df in dfs.items()
         ], axis=1)
     else:
-        return np.concatenate([_df[0] for _df in dfs.values()], axis=1), np.stack([_df[1] for _df in dfs.values()], axis=0).astype(int)
+        return np.concatenate([
+            _df[0] for _df in dfs.values()
+        ], axis=1), np.stack([
+            _df[1] for _df in dfs.values()
+        ], axis=0).astype(int)
