@@ -23,7 +23,7 @@ head -n201 test/outputs/test.csv \
 | schemist featurize \
     -f CSV \
     --feature 3d \
-    --zscore \
+    --std \
     --minimize \
     --conformers 3 \
     --threads 0 \

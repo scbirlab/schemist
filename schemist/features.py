@@ -167,7 +167,7 @@ def _rdkit3d_descriptor_keys() -> tuple[str, ...]:
     from rdkit.Chem.Descriptors3D import CalcMolDescriptors3D
 
     m = Chem.MolFromSmiles("CCC")
-    Chem.AddHs(m)
+    m = Chem.AddHs(m)
     params = AllChem.ETKDGv4()
     params.randomSeed = 0
     status = AllChem.EmbedMolecule(m, params)
@@ -206,6 +206,8 @@ def smiles_to_3d(
                 numConfs=n_conformers, 
                 params=params,
             )
+            if not cids:
+                raise ValueError
             if minimize:
                 res = AllChem.MMFFOptimizeMoleculeConfs(
                     mol2, 
@@ -228,6 +230,7 @@ def smiles_to_3d(
     means = {key: fmean(val) for key, val in descs.items()}
     if with_std and n_conformers > 1:
         means |= {f"{key}_std": pstdev(val) for key, val in descs.items()}
+    means["meta_feature_valid"] = validity
 
     return means
 
@@ -292,7 +295,8 @@ def calculate_3d_features(
     
     strings = cast(strings, to=list)
     descriptors = [
-        smiles_to_3d(s, **kwargs) for s in strings
+        smiles_to_3d(s, **kwargs) 
+        for s in strings
     ]
             
     feature_matrix = pd.DataFrame(descriptors).fillna(0.)

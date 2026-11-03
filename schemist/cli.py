@@ -135,7 +135,7 @@ def _featurize(args: Namespace) -> None:
             n_conformers=args.conformers,
             n_threads=args.threads,
             minimize=args.minimize,
-            z=args.zscore,
+            with_std=args.std,
         ),
         file_format=args.format,
     )
@@ -392,7 +392,7 @@ def main() -> None:
         help='Use MMFF94 minimization for 3D descriptors.',
     )
     zscore = CLIOption(
-        '--zscore', '-z',
+        '--std', '-z',
         action="store_true",
         help='Z-score 3D descriptors across conformers.',
     )
