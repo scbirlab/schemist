@@ -284,8 +284,11 @@ def calculate_3d_features(
     Name: meta_feature_valid, dtype: bool
     >>> ## Unusal valence
     >>> s = "O=S(=O)(OCC1OC(OC2(COS(=O)(=O)O[AlH3](O)O)OC(COS(=O)(=O)O[AlH3](O)O)C(OS(=O)(=O)O[AlH3](O)O)C2OS(=O)(=O)O[AlH3](O)O)C(OS(=O)(=O)O[AlH3](O)O)C(OS(=O)(=O)O[AlH3](O)O)C1OS(=O)(=O)O[AlH3](O)O)O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O"
-    >>> calculate_3d_features(strings=s)[0].shape
-    (1, 0)
+    >>> features, validity = calculate_3d_features(strings=s)
+    >>> features.shape
+    (1, 11)
+    >>> bool(validity[0])
+    False
     >>> s = 'CCc1c(C(=O)N2CC(c3nnc4c3CCC4)C2)nc(C)c1C(=O)OC'
     >>> sum(calculate_3d_features(strings=s)[1])
     1
