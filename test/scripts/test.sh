@@ -19,6 +19,16 @@ schemist featurize test/outputs/test.csv \
     --feature 2d \
     -o test/outputs/test-features.csv
 
+head -n201 test/outputs/test.csv \
+| schemist \
+    -f CSV \
+    --feature 3d \
+    --zscore \
+    --minimize \
+    --conformers 3 \
+    --threads 0 \
+    -o test/outputs/test-features-3d-z.csv
+
 schemist featurize test/outputs/test.csv \
     --feature 3d \
     -o test/outputs/test-features-3d.csv
