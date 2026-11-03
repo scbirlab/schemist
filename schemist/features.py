@@ -120,7 +120,7 @@ def calculate_2d_features(
 
     """  
     import pandas as pd
-    
+
     if normalized:
         if histogram_normalized:
             generator_name = "RDKit2DHistogramNormalized"
@@ -183,7 +183,7 @@ def smiles_to_3d(
     smiles: str,
     n_conformers: int = 1,
     minimize: bool = False,
-    z: bool = False,
+    with_std: bool = False,
     n_threads: int = 1,
     seed: int = 42
 ) -> dict[str, ...]:
@@ -193,6 +193,7 @@ def smiles_to_3d(
     from rdkit.Chem.Descriptors3D import CalcMolDescriptors3D
     keys = _rdkit3d_descriptor_keys()
     mol = _smiles2mol(clean_smiles(smiles))
+    default_result = [0.] * n_conformers
     if mol is not None:
         params = AllChem.ETKDGv4()
         params.randomSeed = seed
@@ -213,22 +214,22 @@ def smiles_to_3d(
             descs = []
             for i in cids:
                 descs.append(CalcMolDescriptors3D(mol2, confId=i))
-            descs = {key: [d[key] for d in descs] for key in keys}
-            means = {key: fmean(val) for key, val in descs.items()}
-            if z and n_conformers > 1:
-                stds = {key: pstdev(val) for key, val in descs.items()}
-                means = {key: val / stds[key] for key, val in means.items()}
         except (ValueError, AtomValenceException):
-            desc = {k: 0. for k in keys}
-            desc["meta_feature_valid"] = False
+            descs = {k: default_result for k in keys}
+            validity = False
         else:
-            desc = {k: float(means.get(k, 0.)) for k in keys}
-            desc["meta_feature_valid"] = True
-        return desc
+            descs = {key: [float(d.get(key, 0.)) for d in descs] for key in keys}
+            descs = {k: descs.get(k, default_result) for k in keys}
+            validity = True
     else:
-        desc = {k: 0. for k in keys}
-        desc["meta_feature_valid"] = False
-        return desc
+        descs = {k: default_result for k in keys}
+        validity = False
+    
+    means = {key: fmean(val) for key, val in descs.items()}
+    if with_std and n_conformers > 1:
+        means |= {f"{key}_std": pstdev(val) for key, val in descs.items()}
+
+    return means
 
 
 @_feature_matrix

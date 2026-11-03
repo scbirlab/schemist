@@ -20,7 +20,7 @@ schemist featurize test/outputs/test.csv \
     -o test/outputs/test-features.csv
 
 head -n201 test/outputs/test.csv \
-| schemist \
+| schemist featurize \
     -f CSV \
     --feature 3d \
     --zscore \

@@ -6,7 +6,7 @@ authors = [
 ]
 description = "Organizing and processing tables of chemical structures."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 license = {file = "LICENSE"}
 keywords = ["science", "chemistry", "SMILES", "SELFIES", "cheminformatics"]
 
