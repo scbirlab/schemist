@@ -185,7 +185,8 @@ def smiles_to_3d(
     minimize: bool = False,
     with_std: bool = False,
     n_threads: int = 1,
-    seed: int = 42
+    seed: int = 42,
+    **kwargs
 ) -> dict[str, ...]:
     from rdkit import Chem
     from rdkit.Chem import AllChem, Mol
