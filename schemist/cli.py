@@ -91,7 +91,12 @@ def _clean(args: Namespace) -> None:
                                       function=partial(cleaner, 
                                                        column=args.column, 
                                                        input_representation=args.representation, 
-                                                       prefix=args.prefix),
+                                                       prefix=args.prefix,
+                                                       skip_desalt=args.skip_desalt,
+                                                       return_all_fragments=args.salt_column,
+                                                       keep_H=args.keep_H,
+                                                       protonate=args.protonate,
+                                                       protonation_pH=args.pH),
                                       file_format=args.format)
     
     _sum_tally(error_tallies)
@@ -106,17 +111,28 @@ def _convert(args: Namespace) -> None:
     
     error_tallies = _mutate_df_stream(input_file=args.input, 
                                       output_file=args.output, 
-                                      function=partial(converter, 
-                                                       column=args.column, 
-                                                       input_representation=args.representation, 
-                                                       output_representation=args.to,
-                                                       prefix=args.prefix,
-                                                       options=options),
+                                      function=partial(
+                                        converter, 
+                                        column=args.column, 
+                                        input_representation=args.representation, 
+                                        output_representation=args.to,
+                                        prefix=args.prefix,
+                                        options=options,
+                                        skip_desalt=args.skip_desalt,
+                                        return_all_fragments=args.salt_column,
+                                        keep_H=args.keep_H,
+                                        protonate=args.protonate,
+                                        protonation_pH=args.pH,
+                                    ),
                                       file_format=args.format)
     
     _sum_tally(error_tallies)
 
     return None
+
+
+def _int_or_auto(x: str):
+    return x if x == "auto" else int(x)
 
 
 @clicommand(message="Adding features to files with the following parameters")
@@ -133,6 +149,8 @@ def _featurize(args: Namespace) -> None:
             input_representation=args.representation, 
             prefix=args.prefix,
             n_conformers=args.conformers,
+            max_conformers=args.max_conformers,
+            prune_rms_thresh=args.prune_rms,
             n_threads=args.threads,
             minimize=args.minimize,
             with_std=args.std,
@@ -376,9 +394,24 @@ def main() -> None:
     )
     n_conformers = CLIOption(
         '--conformers', '-k', 
+        type=_int_or_auto,
+        default="auto",
+        help=(
+            'Number of conformers for 3D descriptors, or "auto" for '
+            'clip(1 + rotatable bonds, 3, --max-conformers).'
+        ),
+    )
+    max_conformers = CLIOption(
+        '--max-conformers',
         type=int,
-        default=1,
-        help='Number of conformers for 3D descriptors.',
+        default=10,
+        help='Maximum conformers for 3D descriptors with `--conformers auto`.',
+    )
+    prune_rms = CLIOption(
+        '--prune-rms',
+        type=float,
+        default=.5,
+        help='Heavy-atom RMSD (Angstrom) for pruning near-duplicate conformers; <0 disables.',
     )
     n_threads = CLIOption(
         '--threads', '-j', 
@@ -395,6 +428,34 @@ def main() -> None:
         '--std', '-z',
         action="store_true",
         help='Z-score 3D descriptors across conformers.',
+    )
+
+    ## clean
+    skip_desalt = CLIOption(
+        '--skip-desalt',
+        action="store_true",
+        help='Keep all fragments. Default: keep only the parent fragment.',
+    )
+    salt_column = CLIOption(
+        '--salt-column',
+        action="store_true",
+        help='Write removed fragments to an extra column: <prefix><column>_salt (clean) or <prefix>smiles_salt (convert).',
+    )
+    keep_H = CLIOption(
+        '--keep-H',
+        action="store_true",
+        help='Keep explicit hydrogen atoms. Implied by --protonate.',
+    )
+    protonate = CLIOption(
+        '--protonate',
+        action="store_true",
+        help='Set the dominant protonation state at --pH (requires schemist[protonate]).',
+    )
+    pH = CLIOption(
+        '--pH',
+        type=float,
+        default=6.7,
+        help='pH for --protonate. Default: %(default)s',
     )
 
     ## split
@@ -518,11 +579,13 @@ def main() -> None:
     clean = CLICommand('clean', 
                        description='Clean and normalize SMILES column of a table.',
                        main=_clean,
-                       options=[output, formatting, inputs, representation, column, prefix])
+                       options=[output, formatting, inputs, representation, column, prefix,
+                                skip_desalt, salt_column, keep_H, protonate, pH])
     convert = CLICommand('convert', 
                          description='Convert between string representations of chemical structures.',
                          main=_convert,
-                         options=[output, formatting, inputs, representation, column, prefix, to, options])
+                         options=[output, formatting, inputs, representation, column, prefix, to, options,
+                                  skip_desalt, salt_column, keep_H, protonate, pH])
     featurize = CLICommand(
         'featurize', 
         description='Convert between string representations of chemical structures.',
@@ -537,6 +600,8 @@ def main() -> None:
             id_feat, 
             feature,
             n_conformers,
+            max_conformers,
+            prune_rms,
             _minimize,
             zscore,
             n_threads,
@@ -590,5 +655,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-
     main()

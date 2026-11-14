@@ -50,15 +50,36 @@ def _get_error_tally(df: DataFrame,
     return tally
 
 
-def converter(df: DataFrame, 
-              column: str = 'smiles',
-              input_representation: str = 'smiles',
-              output_representation: Union[str, Iterable[str]] = 'smiles',
-              prefix: Optional[str] = None,
-              options: Optional[Mapping[str, Any]] = None) -> tuple[dict[str, int], DataFrame]:
+def converter(
+    df: DataFrame,
+    column: str = 'smiles',
+    input_representation: str = 'smiles',
+    output_representation: Union[str, Iterable[str]] = 'smiles',
+    prefix: Optional[str] = None,
+    options: Optional[Mapping[str, Any]] = None,
+    skip_desalt: bool = False,
+    return_all_fragments: bool = False,
+    keep_H: bool = False,
+    protonate: bool = False,
+    protonation_pH: float = 6.7,
+) -> tuple[dict[str, int], DataFrame]:
     
-    """
-    
+    """Convert a column of chemical structures to other representations.
+
+    Structures are cleaned before conversion; see
+    :func:`schemist.converting.convert_string_representation`. With
+    ``return_all_fragments``, removed fragments go in ``<prefix>smiles_salt``.
+
+    Examples
+    ========
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({"smiles": ["CN.Cl", "CCO"]})
+    >>> errors, out = converter(df, output_representation=["smiles", "inchikey"], prefix="c_", return_all_fragments=True)
+    >>> out[["c_smiles", "c_smiles_salt"]].fillna("").values.tolist()
+    [['CN', 'Cl'], ['CCO', '']]
+    >>> list(errors)
+    ['c_smiles', 'c_inchikey']
+
     """
 
     prefix = prefix or ''  
@@ -71,35 +92,81 @@ def converter(df: DataFrame,
         column_values,
         output_representation=output_representation,
         input_representation=input_representation,
+        skip_desalt=skip_desalt,
+        return_all_fragments=return_all_fragments,
+        keep_H=keep_H,
+        protonate=protonate,
+        protonation_pH=protonation_pH,
         **options,
     )
     converted = {f"{prefix}{conversion_name}": cast(conversion, to=list) 
                  for conversion_name, conversion in converters.items()}
     df = df.assign(**converted)
+    tallied = [f"{prefix}{name}" for name in output_representation]
 
-    return  _get_error_tally(df, list(converted)), df
+    return  _get_error_tally(df, tallied), df
 
 
-def cleaner(df: DataFrame, 
-            column: str = 'smiles',
-            input_representation: str = 'smiles',
-            prefix: Optional[str] = None) -> tuple[dict[str, int], DataFrame]:
+def cleaner(
+    df: DataFrame,
+    column: str = 'smiles',
+    input_representation: str = 'smiles',
+    prefix: Optional[str] = None,
+    skip_desalt: bool = False,
+    return_all_fragments: bool = False,
+    keep_H: bool = False,
+    protonate: bool = False,
+    protonation_pH: float = 6.7,
+) -> tuple[dict[str, int], DataFrame]:
     
+    """Clean a column of chemical structures.
+
+    SMILES are sanitized, desalted (unless ``skip_desalt``), stripped of explicit
+    hydrogens (unless ``keep_H``) and optionally protonated at ``protonation_pH``;
+    see :func:`schemist.cleaning.clean_smiles`. With ``return_all_fragments``, the
+    removed fragments go in an extra column named ``<prefix><column>_salt``.
+
+    Examples
+    ========
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({"smiles": ["CN.Cl", "CCO", "not_a_smiles"]})
+    >>> errors, out = cleaner(df, prefix="clean_", return_all_fragments=True)
+    >>> out[["clean_smiles", "clean_smiles_salt"]].fillna("").values.tolist()
+    [['CN', 'Cl'], ['CCO', ''], ['', '']]
+    >>> int(errors["clean_smiles"])
+    1
+
     """
-    
-    """
-     
-    if input_representation.casefold() == 'smiles':
-        cleaner = clean_smiles
-    elif input_representation.casefold() == 'selfies':
-        cleaner = clean_selfies
-    else:
-        raise ValueError(f"Representation {input_representation} is not supported for cleaning.")
-    
     prefix = prefix or ''
     new_column = f"{prefix}{column}"
+    values = _get_column_values(df, column)
 
-    df = df.assign(**{new_column: lambda x: cast(cleaner(_get_column_values(x, column)), to=list)})
+    if input_representation.casefold() == 'smiles':
+        cleaned = cast(
+            clean_smiles(
+                values,
+                skip_desalt=skip_desalt,
+                return_all_fragments=return_all_fragments,
+                keep_H=keep_H,
+                protonate=protonate,
+                protonation_pH=protonation_pH,
+            ),
+            to=list,
+        )
+    elif input_representation.casefold() == 'selfies':
+        if skip_desalt or return_all_fragments or keep_H or protonate:
+            raise ValueError("Desalting, hydrogen and protonation options are only supported for SMILES.")
+        cleaned = cast(clean_selfies(values), to=list)
+    else:
+        raise ValueError(f"Representation {input_representation} is not supported for cleaning.")
+
+    if return_all_fragments:
+        df = df.assign(**{
+            new_column: [None if g is None else g.parent for g in cleaned],
+            f"{new_column}_salt": [None if g is None else g.other_smiles for g in cleaned],
+        })
+    else:
+        df = df.assign(**{new_column: cleaned})
 
     return _get_error_tally(df, new_column), df
 
