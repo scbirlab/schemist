@@ -1,9 +1,8 @@
 """Gradio demo for schemist."""
 
-from typing import Iterable, List, Union
+from collections.abc import Iterable
 from io import TextIOWrapper
 import os
-os.environ["COMMANDLINE_ARGS"] = "--no-gradio-queue"
 
 from carabiner import cast, print_err
 from carabiner.pd import read_table
@@ -28,15 +27,15 @@ def load_input_data(file: TextIOWrapper) -> pd.DataFrame:
     return df, gr.Dropdown(choices=string_cols, interactive=True)
     
 
-def _clean_split_input(strings: str) -> List[str]:
+def _clean_split_input(strings: str) -> list[str]:
     return [s2.strip() for s in strings.split("\n") for s2 in s.split(",")]
 
 
 def _convert_input(
     strings: str,
     input_representation: str = 'smiles', 
-    output_representation: Union[Iterable[str], str] = 'smiles'
-) -> List[str]:
+    output_representation: Iterable[str] | str = 'smiles'
+) -> list[str]:
     strings = _clean_split_input(strings)
     converted = convert_string_representation(
         strings=strings, 
@@ -49,7 +48,7 @@ def _convert_input(
 def convert_one(
     strings: str,
     input_representation: str = 'smiles', 
-    output_representation: Union[Iterable[str], str] = 'smiles'
+    output_representation: Iterable[str] | str = 'smiles'
 ):
 
     df = pd.DataFrame({
@@ -71,7 +70,7 @@ def convert_file(
     df: pd.DataFrame, 
     column: str = 'smiles',
     input_representation: str = 'smiles',
-    output_representation: Union[str, Iterable[str]] = 'smiles'
+    output_representation: Iterable[str] | str = 'smiles'
 ):
     message = f"Converting from {input_representation} to {output_representation}..."
     print_err(message)
@@ -98,7 +97,7 @@ def convert_file(
 
 
 def draw_one(
-    strings: Union[Iterable[str], str],
+    strings: Iterable[str] | str,
     input_representation: str = 'smiles'
 ):
     _ids = _convert_input(
