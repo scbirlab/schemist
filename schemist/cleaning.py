@@ -9,6 +9,9 @@ if TYPE_CHECKING:
 else:
     Mol = Any
 
+DEFAULT_PH: float = 7.4
+
+
 # @return_none_on_error
 def sanitize_smiles_to_mol(s: str) -> Mol:
     r"""Parse SMILES without strict sanitization, apply sanifix5, then perceive stereochemistry.
@@ -93,7 +96,10 @@ class MolGroup:
         return ".".join(x if isinstance(x, str) else MolToSmiles(x) for x in self.other)
 
 
-def _protonate_smiles(smiles: str, pH: float) -> str:
+def _protonate_smiles(
+    smiles: str, 
+    pH: float = DEFAULT_PH
+) -> str:
     """Return the single dominant protonation state at ``pH`` with Dimorphite-DL.
 
     With ``ph_min == ph_max`` and ``precision=0``, each ionisable site is
@@ -126,7 +132,7 @@ def clean_mol(
     skip_desalt: bool = False,
     keep_H: bool = False,
     protonate: bool = False,
-    protonation_pH: float = 6.7,
+    protonation_pH: float = DEFAULT_PH
 ) -> MolGroup | None:
     """Desalt, remove explicit hydrogens and optionally protonate a sanitized molecule.
 
@@ -152,7 +158,7 @@ def clean_mol(
     protonate : bool, optional
         Set the protonation state at ``protonation_pH``. Default: ``False``.
     protonation_pH : float, optional
-        pH for ``protonate``. Default: 6.7.
+        pH for ``protonate``. Default: 7.4.
 
     Returns
     =======
@@ -217,7 +223,7 @@ def clean_smiles(
     return_all_fragments: bool = False,
     keep_H: bool = False,
     protonate: bool = False,
-    protonation_pH: float = 6.7,
+    protonation_pH: float = DEFAULT_PH,
     **kwargs,
 ) -> str | MolGroup:
     """Sanitize, desalt and optionally protonate a SMILES string or list of SMILES strings.
@@ -242,7 +248,7 @@ def clean_smiles(
         Set the protonation state at ``protonation_pH``. Implies ``keep_H``.
         Default: ``False``.
     protonation_pH : float, optional
-        pH for ``protonate``. Default: 6.7.
+        pH for ``protonate``. Default: 7.4.
 
     Returns
     =======
