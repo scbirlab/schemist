@@ -131,6 +131,10 @@ def _convert(args: Namespace) -> None:
     return None
 
 
+def _int_or_auto(x: str):
+    return x if x == "auto" else int(x)
+
+
 @clicommand(message="Adding features to files with the following parameters")
 def _featurize(args: Namespace) -> None:
     
@@ -145,6 +149,8 @@ def _featurize(args: Namespace) -> None:
             input_representation=args.representation, 
             prefix=args.prefix,
             n_conformers=args.conformers,
+            max_conformers=args.max_conformers,
+            prune_rms_thresh=args.prune_rms,
             n_threads=args.threads,
             minimize=args.minimize,
             with_std=args.std,
@@ -388,9 +394,24 @@ def main() -> None:
     )
     n_conformers = CLIOption(
         '--conformers', '-k', 
+        type=_int_or_auto,
+        default="auto",
+        help=(
+            'Number of conformers for 3D descriptors, or "auto" for '
+            'clip(1 + rotatable bonds, 3, --max-conformers).'
+        ),
+    )
+    max_conformers = CLIOption(
+        '--max-conformers',
         type=int,
-        default=1,
-        help='Number of conformers for 3D descriptors.',
+        default=10,
+        help='Maximum conformers for 3D descriptors with `--conformers auto`.',
+    )
+    prune_rms = CLIOption(
+        '--prune-rms',
+        type=float,
+        default=.5,
+        help='Heavy-atom RMSD (Angstrom) for pruning near-duplicate conformers; <0 disables.',
     )
     n_threads = CLIOption(
         '--threads', '-j', 
@@ -579,6 +600,8 @@ def main() -> None:
             id_feat, 
             feature,
             n_conformers,
+            max_conformers,
+            prune_rms,
             _minimize,
             zscore,
             n_threads,

@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING, Any, Optional, Union
 from collections.abc import Callable, Iterable, Mapping
-from functools import cache, wraps
+from functools import cache, lru_cache, wraps
 from statistics import fmean, pstdev
 
 from carabiner.cast import cast
@@ -178,62 +178,192 @@ def _rdkit3d_descriptor_keys() -> tuple[str, ...]:
     return tuple(sorted(d))
 
 
-@cache
+SMILES_TO_3D_CACHE_SIZE: int = 491_520  # ~1 kB per entry, so ~500 MB when full
+
+
+def _resolve_n_conformers(
+    mol: Mol,
+    n_conformers: Union[int, str],
+    max_conformers: int,
+    min_conformers: int = 3,
+) -> int:
+    """Number of conformers to embed.
+
+    With `n_conformers="auto"`, uses ``clip(1 + n_rotatable_bonds, 3, max_conformers)``.
+    An integer `n_conformers` is used as-is.
+
+    Examples
+    --------
+    >>> from rdkit import Chem
+    >>> _resolve_n_conformers(Chem.MolFromSmiles("c1ccccc1"), "auto", 10)
+    3
+    >>> _resolve_n_conformers(Chem.MolFromSmiles("CCCCCC"), "auto", 10)
+    4
+    >>> _resolve_n_conformers(Chem.MolFromSmiles("CCCCCCCCCCCCCCCC"), "auto", 10)
+    10
+    >>> _resolve_n_conformers(Chem.MolFromSmiles("CCCCCCCCCCCCCCCC"), "auto", 2)
+    2
+    >>> _resolve_n_conformers(Chem.MolFromSmiles("CCCCCC"), 7, 10)
+    7
+    >>> _resolve_n_conformers(Chem.MolFromSmiles("CCCCCC"), "many", 10)
+    Traceback (most recent call last):
+        ...
+    ValueError: n_conformers must be a positive int or "auto", got 'many'.
+
+    """
+    if isinstance(n_conformers, str) and n_conformers == "auto":
+        from rdkit.Chem.rdMolDescriptors import CalcNumRotatableBonds
+        n = 1 + CalcNumRotatableBonds(mol)
+        return int(min(max(n, min_conformers), max_conformers))
+    if isinstance(n_conformers, int) and not isinstance(n_conformers, bool) and n_conformers > 0:
+        return n_conformers
+    raise ValueError(
+        f'n_conformers must be a positive int or "auto", got {n_conformers!r}.'
+    )
+
+
+@lru_cache(maxsize=SMILES_TO_3D_CACHE_SIZE)
+def _smiles_to_3d(
+    smiles: str,
+    n_conformers: int | str,
+    max_conformers: int,
+    prune_rms_thresh: float,
+    minimize: bool,
+    with_std: bool,
+    n_threads: int,
+    seed: int,
+) -> tuple[float, ...]:
+    """Cached core of `smiles_to_3d`; returns a flat, immutable tuple.
+
+    Layout: means for each key, then (if `with_std`) stds for each key,
+    then validity as 0./1.
+
+    """
+    from rdkit import Chem
+    from rdkit.Chem import AllChem
+    from rdkit.Chem.rdchem import AtomValenceException
+    from rdkit.Chem.Descriptors3D import CalcMolDescriptors3D
+
+    keys = _rdkit3d_descriptor_keys()
+    n_out = len(keys) * (2 if with_std else 1)
+    invalid = (0., ) * n_out + (0., )
+
+    mol = _smiles2mol(clean_smiles(smiles))
+    if mol is None:
+        return invalid
+    n = _resolve_n_conformers(mol, n_conformers, max_conformers)
+
+    params = AllChem.ETKDGv4()
+    params.randomSeed = seed
+    params.numThreads = n_threads
+    params.pruneRmsThresh = prune_rms_thresh
+    mol = Chem.AddHs(mol)
+    try:
+        cids = list(AllChem.EmbedMultipleConfs(mol, numConfs=n, params=params))
+        if not cids:
+            return invalid
+        if minimize:
+            AllChem.MMFFOptimizeMoleculeConfs(mol, numThreads=n_threads)
+        descs = [CalcMolDescriptors3D(mol, confId=i) for i in cids]
+    except (ValueError, AtomValenceException):
+        return invalid
+
+    values = [[float(d.get(key, 0.)) for d in descs] for key in keys]
+    out = [fmean(v) for v in values]
+    if with_std:
+        out += [pstdev(v) for v in values]  # 0. for a single conformer
+    return tuple(out) + (1., )
+
+
 def smiles_to_3d(
     smiles: str,
-    n_conformers: int = 1,
+    n_conformers: int | str = "auto",
+    max_conformers: int = 10,
+    prune_rms_thresh: float = 0.5,
     minimize: bool = False,
-    with_std: bool = False,
+    with_std: bool | None = None,
     n_threads: int = 1,
     seed: int = 42,
     **kwargs
-) -> dict[str, ...]:
-    from rdkit import Chem
-    from rdkit.Chem import AllChem, Mol
-    from rdkit.Chem.rdchem import AtomValenceException
-    from rdkit.Chem.Descriptors3D import CalcMolDescriptors3D
-    keys = _rdkit3d_descriptor_keys()
-    mol = _smiles2mol(clean_smiles(smiles))
-    default_result = [0.] * n_conformers
-    if mol is not None:
-        params = AllChem.ETKDGv4()
-        params.randomSeed = seed
-        params.numThreads = n_threads
-        params.useSmallRingTorsions = True
-        mol2 = Chem.AddHs(mol)
-        try:
-            cids = AllChem.EmbedMultipleConfs(
-                mol2, 
-                numConfs=n_conformers, 
-                params=params,
-            )
-            if not cids:
-                raise ValueError
-            if minimize:
-                res = AllChem.MMFFOptimizeMoleculeConfs(
-                    mol2, 
-                    numThreads=n_threads,
-                )
-            descs = []
-            for i in cids:
-                descs.append(CalcMolDescriptors3D(mol2, confId=i))
-        except (ValueError, AtomValenceException):
-            descs = {k: default_result for k in keys}
-            validity = False
-        else:
-            descs = {key: [float(d.get(key, 0.)) for d in descs] for key in keys}
-            descs = {k: descs.get(k, default_result) for k in keys}
-            validity = True
-    else:
-        descs = {k: default_result for k in keys}
-        validity = False
-    
-    means = {key: fmean(val) for key, val in descs.items()}
-    if with_std and n_conformers > 1:
-        means |= {f"{key}_std": pstdev(val) for key, val in descs.items()}
-    means["meta_feature_valid"] = validity
+) -> dict[str, float | bool]:
+    """Conformer-averaged RDKit 3D descriptors for one SMILES string.
 
-    return means
+    Embeds conformers with ETKDGv4, optionally MMFF-minimizes them, computes
+    `CalcMolDescriptors3D` per conformer, and returns the unweighted mean
+    (and population std) over conformers.
+
+    Parameters
+    ----------
+    smiles : str
+        Input SMILES. Cleaned (and desalted) with `clean_smiles`.
+    n_conformers : int or "auto", optional
+        Conformers to embed. `"auto"` uses
+        ``clip(1 + n_rotatable_bonds, 3, max_conformers)``. An int overrides
+        `"auto"` and `max_conformers`. Default: `"auto"`.
+    max_conformers : int, optional
+        Cap on conformers for `"auto"`. Default: 10.
+    prune_rms_thresh : float, optional
+        Heavy-atom RMSD (Å) below which embedded conformers are pruned as
+        duplicates. Aggregation is over survivors. Set <0 to disable.
+        Default: 0.5.
+    minimize : bool, optional
+        MMFF-minimize conformers before computing descriptors. Default: `False`.
+    with_std : bool, optional
+        Also return `{descriptor}_std` columns. These are always present when
+        `True`, and 0 when only one conformer survives. Default: `True`
+        unless `n_conformers == 1`.
+    n_threads : int, optional
+        Threads for embedding and minimization; 0 uses all cores. Results
+        do not depend on this. Default: 1.
+    seed : int, optional
+        Embedding random seed. Default: 42.
+
+    Returns
+    -------
+    dict
+        Descriptor means (and stds), plus `"meta_feature_valid"`. On
+        embedding failure all descriptors are 0 and validity is `False`.
+
+    Examples
+    --------
+    >>> d = smiles_to_3d("CCCO")
+    >>> d["meta_feature_valid"]
+    True
+    >>> len(d)
+    23
+    >>> len(smiles_to_3d("CCCO", n_conformers=1))
+    12
+    >>> len(smiles_to_3d("CCCO", n_conformers=1, with_std=True))
+    23
+    >>> smiles_to_3d("CCCO", n_conformers=1, with_std=True)["PMI1_std"]
+    0.0
+    >>> bad = smiles_to_3d("not a smiles")
+    >>> bad["meta_feature_valid"], len(bad), bad["PMI1"]
+    (False, 23, 0.0)
+    >>> smiles_to_3d("CCCO", n_threads=1) == smiles_to_3d("CCCO", n_threads=0)
+    True
+    >>> _smiles_to_3d.cache_info().maxsize == SMILES_TO_3D_CACHE_SIZE
+    True
+
+    """
+    if with_std is None:
+        with_std = not (isinstance(n_conformers, int) and n_conformers == 1)
+    with_std = bool(with_std)
+    keys = _rdkit3d_descriptor_keys()
+    values = _smiles_to_3d(
+        smiles,
+        n_conformers=n_conformers,
+        max_conformers=int(max_conformers),
+        prune_rms_thresh=float(prune_rms_thresh),
+        minimize=bool(minimize),
+        with_std=with_std,
+        n_threads=int(n_threads),
+        seed=int(seed),
+    )
+    all_keys = keys + (tuple(f"{key}_std" for key in keys) if with_std else ())
+    result = dict(zip(all_keys, values[:-1]))
+    result["meta_feature_valid"] = bool(values[-1])
+    return result
 
 
 @_feature_matrix
@@ -255,6 +385,10 @@ def calculate_3d_features(
         Representation type
     seed : int
         Seed for reproducible randomness
+    **kwargs
+        Passed to `smiles_to_3d`: `n_conformers` (default `"auto"`),
+        `max_conformers`, `prune_rms_thresh`, `minimize`, `with_std`,
+        `n_threads`.
     return_dataframe : bool, optional
         Whether to retrun a Pandas DataFrame instead of a numpy Array. Default: `False`.
 
@@ -270,14 +404,20 @@ def calculate_3d_features(
     --------
     >>> features, validity = calculate_3d_features(strings='CCC')
     >>> features.shape
-    (1, 11)
+    (1, 22)
     >>> sum(validity)
     1
     >>> features, validity = calculate_3d_features(strings=['CCC', 'CCCO'])
     >>> features.shape
-    (2, 11)
+    (2, 22)
     >>> sum(validity)
     2
+    >>> calculate_3d_features(strings=['CCC', 'CCCO'], n_conformers=1)[0].shape
+    (2, 11)
+    >>> a = calculate_3d_features(strings='CCCCCCO', seed=1)[0]
+    >>> b = calculate_3d_features(strings='CCCCCCO', seed=2)[0]
+    >>> bool((a == b).all())
+    False
     >>> calculate_3d_features(strings=['CCC', 'CCCO'], return_dataframe=True).meta_feature_valid
     CCC     True
     CCCO    True
@@ -286,7 +426,7 @@ def calculate_3d_features(
     >>> s = "O=S(=O)(OCC1OC(OC2(COS(=O)(=O)O[AlH3](O)O)OC(COS(=O)(=O)O[AlH3](O)O)C(OS(=O)(=O)O[AlH3](O)O)C2OS(=O)(=O)O[AlH3](O)O)C(OS(=O)(=O)O[AlH3](O)O)C(OS(=O)(=O)O[AlH3](O)O)C1OS(=O)(=O)O[AlH3](O)O)O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O.O[AlH3](O)O"
     >>> features, validity = calculate_3d_features(strings=s)
     >>> features.shape
-    (1, 11)
+    (1, 22)
     >>> bool(validity[0])
     False
     >>> s = 'CCc1c(C(=O)N2CC(c3nnc4c3CCC4)C2)nc(C)c1C(=O)OC'
@@ -299,7 +439,7 @@ def calculate_3d_features(
     
     strings = cast(strings, to=list)
     descriptors = [
-        smiles_to_3d(s, **kwargs) 
+        smiles_to_3d(s, seed=seed, **kwargs)
         for s in strings
     ]
             
@@ -492,11 +632,11 @@ def calculate_feature(
     >>> calculate_feature("2d", strings=['CCC', 'CCO'])[0].shape
     (2, 200)
     >>> calculate_feature("3d", strings=['CCC', 'CCO'])[0].shape
-    (2, 11)
+    (2, 22)
     >>> calculate_feature("fp", on_bits=False, strings=['CCC', 'CCO'])[0].shape
     (2, 2048)
     >>> calculate_feature("all", on_bits=False, strings=['CCC', 'CCO'])[0].shape
-    (2, 2259)
+    (2, 2270)
 
     """
     if feature_type == "all":

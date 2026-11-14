@@ -60,7 +60,6 @@ For 3D descriptors, generate multiple conformers per compound:
 ```bash
 schemist featurize compounds.csv \
   --feature 3d \
-  --conformers 10 \
   --minimize \
   --threads 4 \
   --output descriptors.csv
@@ -170,14 +169,16 @@ schemist featurize compounds.csv \
   -o features-3d.csv
 ```
 
-3D descriptors are calculated using RDKit ETKDGv4 conformer embedding. Multiple conformers can be generated for each molecule, with descriptor values averaged across conformers.
+3D descriptors are calculated using RDKit ETKDGv4 conformer embedding. By default, each molecule gets `clip(1 + rotatable bonds, 3, 10)` conformers; near-duplicates (heavy-atom RMSD < 0.5 Å) are pruned and descriptor values are averaged over the survivors. Results are deterministic for a given seed, whatever the thread count.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--conformers`, `-k` | `1` | Number of conformers per molecule |
+| `--conformers`, `-k` | `auto` | Number of conformers per molecule, or `auto` |
+| `--max-conformers` | `10` | Cap on conformers for `--conformers auto` |
+| `--prune-rms` | `0.5` | RMSD (Å) for pruning near-duplicate conformers; `<0` disables |
 | `--threads`, `-j` | `1` | Parallel threads; `0` uses all available |
 | `--minimize` | Off | Minimize conformers using MMFF94 |
-| `--zscore` | Off | Divide descriptor means by their population standard deviation across conformers |
+| `--std`, `-z` | Off | Also output the population standard deviation of each descriptor across conformers |
 
 The `--zscore` option requires multiple conformers to have an effect. It is an experimental normalization option and should be used cautiously for descriptors with little or no conformational variance.
 
