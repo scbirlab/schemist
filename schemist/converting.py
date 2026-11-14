@@ -35,6 +35,7 @@ else:
 
 from .cleaning import clean_mol, sanitize_smiles_to_mol
 from .rest_lookup import _inchikey2pubchem_name_id, _inchikey2cactus_name
+from .typing import StrOrIterable, OptionalStrOrIterable, OptionalMol, OptionalMolOrIterable, MolOrIterable
 
 @vectorize
 @return_none_on_error
