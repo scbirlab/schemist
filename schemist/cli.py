@@ -91,7 +91,12 @@ def _clean(args: Namespace) -> None:
                                       function=partial(cleaner, 
                                                        column=args.column, 
                                                        input_representation=args.representation, 
-                                                       prefix=args.prefix),
+                                                       prefix=args.prefix,
+                                                       skip_desalt=args.skip_desalt,
+                                                       return_all_fragments=args.salt_column,
+                                                       keep_H=args.keep_H,
+                                                       protonate=args.protonate,
+                                                       protonation_pH=args.pH),
                                       file_format=args.format)
     
     _sum_tally(error_tallies)
@@ -106,12 +111,19 @@ def _convert(args: Namespace) -> None:
     
     error_tallies = _mutate_df_stream(input_file=args.input, 
                                       output_file=args.output, 
-                                      function=partial(converter, 
-                                                       column=args.column, 
-                                                       input_representation=args.representation, 
-                                                       output_representation=args.to,
-                                                       prefix=args.prefix,
-                                                       options=options),
+                                      function=partial(
+                                        converter, 
+                                        column=args.column, 
+                                        input_representation=args.representation, 
+                                        output_representation=args.to,
+                                        prefix=args.prefix,
+                                        options=options,
+                                        skip_desalt=args.skip_desalt,
+                                        return_all_fragments=args.salt_column,
+                                        keep_H=args.keep_H,
+                                        protonate=args.protonate,
+                                        protonation_pH=args.pH,
+                                    ),
                                       file_format=args.format)
     
     _sum_tally(error_tallies)
@@ -397,6 +409,34 @@ def main() -> None:
         help='Z-score 3D descriptors across conformers.',
     )
 
+    ## clean
+    skip_desalt = CLIOption(
+        '--skip-desalt',
+        action="store_true",
+        help='Keep all fragments. Default: keep only the parent fragment.',
+    )
+    salt_column = CLIOption(
+        '--salt-column',
+        action="store_true",
+        help='Write removed fragments to an extra column: <prefix><column>_salt (clean) or <prefix>smiles_salt (convert).',
+    )
+    keep_H = CLIOption(
+        '--keep-H',
+        action="store_true",
+        help='Keep explicit hydrogen atoms. Implied by --protonate.',
+    )
+    protonate = CLIOption(
+        '--protonate',
+        action="store_true",
+        help='Set the dominant protonation state at --pH (requires schemist[protonate]).',
+    )
+    pH = CLIOption(
+        '--pH',
+        type=float,
+        default=6.7,
+        help='pH for --protonate. Default: %(default)s',
+    )
+
     ## split
     type_ = CLIOption('--type', '-t', 
                        type=str,
@@ -518,11 +558,13 @@ def main() -> None:
     clean = CLICommand('clean', 
                        description='Clean and normalize SMILES column of a table.',
                        main=_clean,
-                       options=[output, formatting, inputs, representation, column, prefix])
+                       options=[output, formatting, inputs, representation, column, prefix,
+                                skip_desalt, salt_column, keep_H, protonate, pH])
     convert = CLICommand('convert', 
                          description='Convert between string representations of chemical structures.',
                          main=_convert,
-                         options=[output, formatting, inputs, representation, column, prefix, to, options])
+                         options=[output, formatting, inputs, representation, column, prefix, to, options,
+                                  skip_desalt, salt_column, keep_H, protonate, pH])
     featurize = CLICommand(
         'featurize', 
         description='Convert between string representations of chemical structures.',
@@ -590,5 +632,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-
     main()
