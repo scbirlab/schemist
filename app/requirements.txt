@@ -1,7 +1,5 @@
-carabiner-tools[pd]>=0.0.3.post1
-gradio>=5.0.1
+carabiner-tools[pd]>=0.0.5.post1
+gradio>=5.9.1
 nemony
 numpy
-pandas
-rdkit
-schemist>=0.0.1
+schemist>=0.1.2
