@@ -33,19 +33,20 @@ if TYPE_CHECKING:
 else:
     Session = Any
 
-from .cleaning import sanitize_smiles_to_mol
+from .cleaning import clean_mol, sanitize_smiles_to_mol
 from .rest_lookup import _inchikey2pubchem_name_id, _inchikey2cactus_name
+from .typing import StrOrIterable, OptionalStrOrIterable, OptionalMol, OptionalMolOrIterable, MolOrIterable
 
 @vectorize
 @return_none_on_error
-def _seq2mol(s: str) -> Union[Mol, None]:
+def _seq2mol(s: str) -> OptionalMol:
 
     return MolFromSequence(s, sanitize=True)
 
 
 @vectorize
 @return_none_on_error
-def _helm2mol(s: str) -> Union[Mol, None]:
+def _helm2mol(s: str) -> OptionalMol:
 
     return MolFromHELM(s, sanitize=True)
 
@@ -223,9 +224,11 @@ def _mol2tpsa(m: Mol,
     return rdMolDescriptors.CalcTPSA(m)
 
 
-def _mol2pubchem(m: Union[Mol, Iterable[Mol]],
-                 session: Optional[Session] = None,
-                 chunksize: int = 16) -> list[dict[str, Union[None, int, str]]]:
+def _mol2pubchem(
+    m: MolOrIterable,
+    session: Session | None = None,
+    chunksize: int = 16
+) -> list[dict[str, None | int | str]]:
     
     inchikeys = cast(_mol2inchikey(m), to=list)
     pubchem_ids = []
@@ -239,10 +242,12 @@ def _mol2pubchem(m: Union[Mol, Iterable[Mol]],
 
 
 @return_none_on_error
-def _mol2pubchem_id(m: Union[Mol, Iterable[Mol]],
-                    session: Optional[Session] = None,
-                    chunksize: int = 32,
-                    **kwargs) -> Union[str, list[str]]:
+def _mol2pubchem_id(
+    m: MolOrIterable,
+    session: Session | None = None,
+    chunksize: int = 32,
+    **kwargs
+) -> str | list[str]:
 
     return flatten([val['pubchem_id'] 
                      for val in _mol2pubchem(m, 
@@ -251,77 +256,89 @@ def _mol2pubchem_id(m: Union[Mol, Iterable[Mol]],
 
 
 @return_none_on_error
-def _mol2pubchem_name(m: Union[Mol, Iterable[Mol]],
-                      session: Optional[Session] = None,
-                      chunksize: int = 32,
-                      **kwargs) -> Union[str, list[str]]:
-
-    return flatten([val['pubchem_name'] 
-                     for val in _mol2pubchem(m, 
-                                             session=session, 
-                                             chunksize=chunksize)])
+def _mol2pubchem_name(
+    m: MolOrIterable,
+    session: Session | None = None,
+    chunksize: int = 32,
+    **kwargs
+) -> str | list[str]:
+    return flatten([
+        val['pubchem_name'] 
+        for val in _mol2pubchem(
+            m, 
+            session=session, 
+            chunksize=chunksize,
+        )
+    ])
 
 @return_none_on_error
-def _mol2cactus_name(m: Union[Mol, Iterable[Mol]],
-                     session: Optional[Session] = None,
-                     **kwargs) -> Union[str, list[str]]:
-
-    return _inchikey2cactus_name(_mol2inchikey(m), 
-                                 session=session)
+def _mol2cactus_name(
+    m: MolOrIterable,
+    session: Session | None = None,
+    **kwargs
+) -> str | list[str]:
+    return _inchikey2cactus_name(
+        _mol2inchikey(m), 
+        session=session,
+    )
 
 
 @vectorize
 @return_none_on_error
-def _mol2scaffold(m: Mol,
-                  chiral: bool = True,
-                  **kwargs) -> str:
-    
-    return MurckoScaffoldSmiles(mol=m, 
-                                includeChirality=chiral)
+def _mol2scaffold(
+    m: Mol,
+    chiral: bool = True,
+    **kwargs,
+) -> str:
+    return MurckoScaffoldSmiles(
+        mol=m, 
+        includeChirality=chiral,
+    )
 
 
 @vectorize
 @return_none_on_error
 def _mol2selfies(m: Mol,
                  **kwargs) -> str:
-
     s = sf.encoder(_mol2isomeric_canonical_smiles(m))
-
     return s if s != -1 else None
 
 
-_TO_FUNCTIONS = {"smiles": _mol2isomeric_canonical_smiles,
-                 "selfies": _mol2selfies,
-                 "inchi": _mol2inchi,
-                 "inchikey": _mol2inchikey,
-                 "nonstandard_inchikey": _mol2nonstandard_inchikey,
-                 "hash": _mol2hash,
-                 "mnemonic": _mol2mnemonic, 
-                 "id": _mol2id,
-                 "scaffold": _mol2scaffold,
-                 "permuted_smiles": _mol2random_smiles,
-                 "pubchem_id": _mol2pubchem_id,
-                 "pubchem_name": _mol2pubchem_name, 
-                 "cactus_name": _mol2cactus_name,
-                 "clogp": _mol2clogp,
-                 "tpsa": _mol2tpsa,
-                 "mwt": _mol2mwt,
-                 "min_charge": _mol2min_charge,
-                 "max_charge": _mol2max_charge}
+_TO_FUNCTIONS = {
+    "smiles": _mol2isomeric_canonical_smiles,
+    "selfies": _mol2selfies,
+    "inchi": _mol2inchi,
+    "inchikey": _mol2inchikey,
+    "nonstandard_inchikey": _mol2nonstandard_inchikey,
+    "hash": _mol2hash,
+    "mnemonic": _mol2mnemonic, 
+    "id": _mol2id,
+    "scaffold": _mol2scaffold,
+    "permuted_smiles": _mol2random_smiles,
+    "pubchem_id": _mol2pubchem_id,
+    "pubchem_name": _mol2pubchem_name, 
+    "cactus_name": _mol2cactus_name,
+    "clogp": _mol2clogp,
+    "tpsa": _mol2tpsa,
+    "mwt": _mol2mwt,
+    "min_charge": _mol2min_charge,
+    "max_charge": _mol2max_charge,
+}
 
-_FROM_FUNCTIONS = {"smiles": _smiles2mol,
-                   "selfies": _selfies2mol,
-                   "inchi": _inchi2mol,
-                   "aa_seq": _seq2mol,
-                   "helm": _helm2mol,
-                   "minihelm": _mini_helm2mol}
+_FROM_FUNCTIONS = {
+    "smiles": _smiles2mol,
+    "selfies": _selfies2mol,
+    "inchi": _inchi2mol,
+    "aa_seq": _seq2mol,
+    "helm": _helm2mol,
+    "minihelm": _mini_helm2mol,
+}
 
 
 def _x2mol(
-    strings: Union[Iterable[str], str],
+    strings: StrOrIterable,
     input_representation: str = 'smiles'
-) -> Union[Mol, None, Iterable[Union[Mol, None]]]:
-
+) -> OptionalMolOrIterable:
     from_function = _FROM_FUNCTIONS[input_representation.casefold()]
     return from_function(strings)
 
@@ -330,36 +347,97 @@ def _mol2x(
     mols: Union[Iterable[Mol], Mol],
     output_representation: str = 'smiles',
     **kwargs
-) -> Union[str, None, Iterable[Union[str, None]]]:
-
+) -> OptionalStrOrIterable:
     to_function = _TO_FUNCTIONS[output_representation.casefold()]
-
     return to_function(mols, **kwargs)
 
 
 def convert_string_representation(
-    strings: Union[Iterable[str], str],
+    strings: Iterable[str] | str,
     input_representation: str = 'smiles', 
-    output_representation: Union[Iterable[str], str] = 'smiles', 
+    output_representation: Iterable[str] | str = 'smiles', 
+    skip_desalt: bool = False,
+    return_all_fragments: bool = False,
+    keep_H: bool = False,
+    protonate: bool = False,
+    protonation_pH: float = 6.7,
     **kwargs
-) -> Union[str, None, Iterable[Union[str, None]], dict[str, Union[str, None, Iterable[Union[str, None]]]]]:
+) -> OptionalStrOrIterable | dict[str, OptionalStrOrIterable]:
     
-    """Convert between string representations of chemical structures.
-    
+    r"""Convert between string representations of chemical structures.
+
+    Every input representation is parsed to a ``Mol`` and cleaned with
+    :func:`schemist.cleaning.clean_mol` (desalting, explicit-hydrogen removal,
+    optional protonation) before conversion, so all outputs describe the same
+    cleaned structure.
+
+    Parameters
+    ==========
+    strings : str or Iterable[str]
+        Input structures.
+    input_representation : str, optional
+        One of the keys of ``_FROM_FUNCTIONS``. Default: ``"smiles"``.
+    output_representation : str or Iterable[str], optional
+        One or more keys of ``_TO_FUNCTIONS``. Default: ``"smiles"``.
+    skip_desalt, keep_H, protonate, protonation_pH
+        Passed to :func:`schemist.cleaning.clean_mol`.
+    return_all_fragments : bool, optional
+        Also return the removed fragments as dot-separated SMILES under the key
+        ``"smiles_salt"``. Forces dictionary output. Default: ``False``.
+    **kwargs
+        Passed to the output conversion functions.
+
+    Returns
+    =======
+    Iterable or dict
+        Converted strings, or a dict of them keyed by output representation.
+
+    Examples
+    ========
+    >>> list(convert_string_representation(["CN.Cl", "C/C=C\\C"], output_representation="inchikey"))
+    ['BAVYZALUXZFZLV-UHFFFAOYSA-N', 'IAQRGUVFOMOMEM-ARJAWSKDSA-N']
+    >>> convert_string_representation("CN.Cl", skip_desalt=True)
+    'CN.Cl'
+    >>> convert_string_representation("CN.Cl", output_representation="smiles", return_all_fragments=True)
+    {'smiles': 'CN', 'smiles_salt': 'Cl'}
+    >>> out = convert_string_representation(
+    ...     ["CN.Cl", "InChI=1S/C2H6O/c1-2-3/h3H,2H2,1H3"],
+    ...     input_representation="inchi",
+    ...     output_representation="smiles",
+    ...     return_all_fragments=True,
+    ... )
+    >>> {k: list(v) for k, v in out.items()}
+    {'smiles': [None, 'CCO'], 'smiles_salt': [None, None]}
+
     """
 
-    mols = _x2mol(cast(strings, to=list), input_representation)
-    # print_err(mols)
+    mols = cast(_x2mol(cast(strings, to=list), input_representation), to=list)
+    groups = [
+        clean_mol(
+            mol,
+            skip_desalt=skip_desalt,
+            keep_H=keep_H,
+            protonate=protonate,
+            protonation_pH=protonation_pH,
+        )
+        for mol in mols
+    ]
+    mols = [None if g is None else g.parent for g in groups]
+
+    if return_all_fragments and isinstance(output_representation, str):
+        output_representation = [output_representation]
 
     if not isinstance(output_representation, str) and isinstance(output_representation, Iterable):
-        mols = cast(mols, to=list)
         outstrings = {rep_name: _mol2x(mols, rep_name, **kwargs) 
                       for rep_name in output_representation}
+        if return_all_fragments:
+            salts = [None if g is None else g.other_smiles for g in groups]
+            # match vectorize: a single input gives scalar outputs
+            outstrings["smiles_salt"] = salts[0] if len(salts) == 1 else salts
     elif isinstance(output_representation, str):
         outstrings = _mol2x(mols, output_representation, **kwargs) 
     else:
         raise TypeError(f"Specified output representation must be a string or iterable")
-    # print_err(outstrings)
 
     return outstrings
 
