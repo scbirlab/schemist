@@ -314,6 +314,19 @@ fingerprints = calculate_fingerprints(
 
 For combined feature generation, use `schemist.features.calculate_feature`.
 
+### Generate 3D conformers
+
+```python
+from schemist.conformers import embed_conformers
+
+atomic_numbers, coordinates = embed_conformers("CCO", n_conformers=10, seed=42)
+# int8 [9], float32 [10, 9, 3] (Å), hydrogens included
+```
+
+The SMILES is parsed as given, because conformers depend on atom order. Conformers are embedded with ETKDG and relaxed with MMFF94 (defaults: `etkdg_version=3`, no RMS pruning, `max_iters=500`). Invalid SMILES raise `ValueError`; failed conformer generation raises `RuntimeError`.
+
+`embed_mol_conformers` is the underlying routine, on an RDKit `Mol`, and returns the molecule with its conformers. 3D descriptors (`calculate_3d_features`) use it too, with ETKDGv4 and RMS pruning. With `minimize=True`, molecules MMFF94 has no parameters for are invalid, rather than left unminimized.
+
 The Python API also exposes functions for structure cleaning, dataset splitting, chemical library collation, peptide generation, and in-silico reactions.
 
 ## Data handling

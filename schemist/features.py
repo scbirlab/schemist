@@ -1,6 +1,6 @@
 """Tools for generating chemical features."""
 
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 from collections.abc import Callable, Iterable, Mapping
 from functools import cache, lru_cache, wraps
 from statistics import fmean, pstdev
@@ -9,6 +9,7 @@ from carabiner.cast import cast
 from carabiner.decorators import return_none_on_error, vectorize
 
 import numpy as np
+from numpy.typing import NDArray
 from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
 
@@ -23,14 +24,19 @@ else:
     DataFrame, FingerprintGenerator64, Mol = Any, Any, Any
 
 from .cleaning import clean_smiles
+from .conformers import embed_mol_conformers
 from .converting import _x2mol, _mol2x, _smiles2mol, _convert_input_to_smiles
+from .typing import StrOrIterable
 
 
-def _feature_matrix(f: Callable[[Any], DataFrame]) -> Callable[[Any], Union[DataFrame, tuple[np.ndarray, np.ndarray]]]:
+def _feature_matrix(f: Callable[[...], DataFrame]) -> Callable[[...], DataFrame | tuple[NDArray, ...]]:
 
     @wraps(f)
-    def _f(prefix: Optional[str] = None,
-           *args, **kwargs) -> Union[DataFrame, tuple[np.ndarray, np.ndarray]]:
+    def _f(
+        prefix: str | None = None,
+        *args, 
+        **kwargs
+    ) -> DataFrame | tuple[NDArray, ...]:
         import pandas as pd
         feature_matrix = f(*args, **kwargs)
 
@@ -48,7 +54,7 @@ def _feature_matrix(f: Callable[[Any], DataFrame]) -> Callable[[Any], Union[Data
 def _get_descriptastorus_features(
     smiles: Iterable[str], 
     generator: str = "RDKit2DHistogramNormalized"
-) -> Union[DataFrame, tuple[np.ndarray, list[str]]]:
+) -> DataFrame | tuple[NDArray, list[str]]:
     from descriptastorus.descriptors import MakeGenerator
     generator = MakeGenerator((generator, ))
     smiles = cast(clean_smiles(smiles), to=list)
@@ -63,12 +69,12 @@ def _get_descriptastorus_features(
 @_feature_matrix
 @_convert_input_to_smiles
 def calculate_2d_features(
-    strings: Union[Iterable[str], str], 
+    strings: StrOrIterable, 
     normalized: bool = True, 
     histogram_normalized: bool = True,
     return_dataframe: bool = False,
     *args, **kwargs
-) -> Union[DataFrame, tuple[np.ndarray, np.ndarray]]:
+) -> DataFrame | tuple[NDArray, NDArray]:
 
     """Calculate 2d features from string representation.
 
@@ -183,7 +189,7 @@ SMILES_TO_3D_CACHE_SIZE: int = 491_520  # ~1 kB per entry, so ~500 MB when full
 
 def _resolve_n_conformers(
     mol: Mol,
-    n_conformers: Union[int, str],
+    n_conformers: int | str,
     max_conformers: int,
     min_conformers: int = 3,
 ) -> int:
@@ -239,8 +245,6 @@ def _smiles_to_3d(
     then validity as 0./1.
 
     """
-    from rdkit import Chem
-    from rdkit.Chem import AllChem
     from rdkit.Chem.rdchem import AtomValenceException
     from rdkit.Chem.Descriptors3D import CalcMolDescriptors3D
 
@@ -253,19 +257,20 @@ def _smiles_to_3d(
         return invalid
     n = _resolve_n_conformers(mol, n_conformers, max_conformers)
 
-    params = AllChem.ETKDGv4()
-    params.randomSeed = seed
-    params.numThreads = n_threads
-    params.pruneRmsThresh = prune_rms_thresh
-    mol = Chem.AddHs(mol)
     try:
-        cids = list(AllChem.EmbedMultipleConfs(mol, numConfs=n, params=params))
-        if not cids:
-            return invalid
-        if minimize:
-            AllChem.MMFFOptimizeMoleculeConfs(mol, numThreads=n_threads)
+        mol, cids = embed_mol_conformers(
+            mol,
+            n_conformers=n,
+            seed=seed,
+            etkdg_version=4,
+            prune_rms_thresh=prune_rms_thresh,
+            minimize=minimize,
+            max_iters=200,  # RDKit's default
+            n_threads=n_threads,
+        )
         descs = [CalcMolDescriptors3D(mol, confId=i) for i in cids]
-    except (ValueError, AtomValenceException):
+    except (ValueError, RuntimeError, AtomValenceException):
+        # RuntimeError: no conformers, or MMFF94 cannot minimize them.
         return invalid
 
     values = [[float(d.get(key, 0.)) for d in descs] for key in keys]
@@ -288,7 +293,8 @@ def smiles_to_3d(
 ) -> dict[str, float | bool]:
     """Conformer-averaged RDKit 3D descriptors for one SMILES string.
 
-    Embeds conformers with ETKDGv4, optionally MMFF-minimizes them, computes
+    Embeds conformers with ETKDGv4 (via `schemist.conformers.embed_mol_conformers`),
+    optionally MMFF-minimizes them, computes
     `CalcMolDescriptors3D` per conformer, and returns the unweighted mean
     (and population std) over conformers.
 
@@ -307,7 +313,8 @@ def smiles_to_3d(
         duplicates. Aggregation is over survivors. Set <0 to disable.
         Default: 0.5.
     minimize : bool, optional
-        MMFF-minimize conformers before computing descriptors. Default: `False`.
+        MMFF-minimize conformers before computing descriptors. Molecules
+        MMFF94 has no parameters for are then invalid. Default: `False`.
     with_std : bool, optional
         Also return `{descriptor}_std` columns. These are always present when
         `True`, and 0 when only one conformer survives. Default: `True`
@@ -340,6 +347,14 @@ def smiles_to_3d(
     >>> bad = smiles_to_3d("not a smiles")
     >>> bad["meta_feature_valid"], len(bad), bad["PMI1"]
     (False, 23, 0.0)
+
+    Without MMFF94 parameters, a molecule cannot be minimized, so it is
+    invalid rather than silently left unminimized:
+
+    >>> smiles_to_3d("C[Si](C)(C)O[B](O)O")["meta_feature_valid"]
+    True
+    >>> smiles_to_3d("C[Si](C)(C)O[B](O)O", minimize=True)["meta_feature_valid"]
+    False
     >>> smiles_to_3d("CCCO", n_threads=1) == smiles_to_3d("CCCO", n_threads=0)
     True
     >>> _smiles_to_3d.cache_info().maxsize == SMILES_TO_3D_CACHE_SIZE
@@ -369,11 +384,11 @@ def smiles_to_3d(
 @_feature_matrix
 @_convert_input_to_smiles
 def calculate_3d_features(
-    strings: Union[Iterable[str], str],
+    strings: StrOrIterable,
     seed: int = 42,
     return_dataframe: bool = False,
     *args, **kwargs
-) -> Union[DataFrame, tuple[np.ndarray, np.ndarray]]:
+) -> DataFrame | tuple[NDArray, NDArray]:
 
     """Calculate 3d features from string representation.
 
@@ -463,7 +478,7 @@ def _fast_fingerprint(
     generator: FingerprintGenerator64, 
     mol: Mol,
     to_np: bool = True
-) -> Union[str, np.ndarray]:
+) -> str | NDArray:
 
     try:
         fp_string = generator.GetFingerprint(mol).ToBitString()
@@ -479,14 +494,14 @@ def _fast_fingerprint(
 @_feature_matrix
 @_convert_input_to_smiles
 def calculate_fingerprints(
-    strings: Union[Iterable[str], str], 
+    strings: StrOrIterable, 
     fp_type: str = 'morgan',
     radius: int = 2,
     chiral: bool = True, 
     on_bits: bool = True,
     return_dataframe: bool = False,
     *args, **kwargs
-) -> Union[DataFrame, tuple[np.ndarray, np.ndarray]]:
+) -> DataFrame | tuple[NDArray, NDArray]:
     
     """Calculate the binary fingerprint of string representation(s).
 
@@ -623,7 +638,7 @@ def calculate_feature(
     return_dataframe: bool = False,
     *args, 
     **kwargs
-) -> DataFrame | tuple[np.ndarray, np.ndarray]:
+) -> DataFrame | tuple[NDArray, NDArray]:
     
     """Calculate the binary fingerprint or descriptor vector of string representation(s).
     
