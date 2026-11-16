@@ -14,7 +14,7 @@ else:
 ETKDG_VERSIONS: tuple[int, ...] = (2, 3, 4)
 
 
-def _validate_conformer_args(
+def validate_conformer_args(
     n_conformers: int,
     seed: int,
     etkdg_version: int,
@@ -23,6 +23,26 @@ def _validate_conformer_args(
     max_iters: int,
     n_threads: int
 ) -> None:
+    """Check conformer-generation arguments, as used by :func:`embed_mol_conformers`.
+
+    Public so that callers can validate a configuration once, before
+    embedding many molecules, and so tell configuration errors apart from
+    per-molecule failures.
+
+    Raises
+    ------
+    ValueError
+        If any argument is invalid.
+
+    Examples
+    --------
+    >>> validate_conformer_args(1, 42, 3, -1., True, 500, 1)
+    >>> validate_conformer_args(1, -1, 3, -1., True, 500, 1)
+    Traceback (most recent call last):
+        ...
+    ValueError: seed must be an int in [0, 2**31), got -1.
+
+    """
     def _int(x) -> bool:
         return isinstance(x, int) and not isinstance(x, bool)
 
@@ -156,7 +176,7 @@ def embed_mol_conformers(
     from rdkit import Chem
     from rdkit.Chem import AllChem
 
-    _validate_conformer_args(n_conformers, seed, etkdg_version, prune_rms_thresh, minimize, max_iters, n_threads)
+    validate_conformer_args(n_conformers, seed, etkdg_version, prune_rms_thresh, minimize, max_iters, n_threads)
     factory = getattr(AllChem, f"ETKDGv{etkdg_version}", None)
     if factory is None:  # e.g. the old_glibc extra's RDKit has no ETKDGv4
         import rdkit

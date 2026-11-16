@@ -1,6 +1,6 @@
 [project]
 name = "schemist"
-version = "0.1.3"
+version = "0.1.4"
 authors = [
   { name="Eachan Johnson", email="eachan.johnson@crick.ac.uk" },
 ]
@@ -31,17 +31,15 @@ classifiers = [
 dependencies = [ 
   "carabiner-tools[pd]>=0.0.5.post3",
   "descriptastorus>=2.7",
-  "nemony",
-  "openpyxl==3.1.0", 
-  "pandas",
+  "nemony>=0.0.2",
+  "openpyxl==3.1.0",
   "rdkit>=2026.09.1",
-  "requests",
-  "selfies",
-  "six",
+  "requests>=2.34",
+  "selfies>=2.0",
+  "six>=1.0",
 ]
 
 [project.optional-dependencies]
-old_glibc = ["rdkit-pypi==2022.09.5"]
 dev = ["pytest", "flake8"]
 protonate = ["dimorphite_dl>=2.1"]
 
