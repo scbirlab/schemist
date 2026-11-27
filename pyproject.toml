@@ -19,20 +19,16 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Chemistry",
 
   "License :: OSI Approved :: MIT License",
-
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
-  "Programming Language :: Python :: 3.14",
-  "Programming Language :: Python :: 3.15",
+  
   "Programming Language :: Python :: 3 :: Only",
 ]
 
 dependencies = [ 
-  "carabiner-tools[pd]>=0.0.5.post3",
+  "carabiner-tools[pd]>=0.0.6",
   "descriptastorus>=2.7",
   "nemony>=0.0.2",
-  "openpyxl==3.1.0",
+  "numpy",
+  "pandas",
   "rdkit>=2026.09.1",
   "requests>=2.34",
   "selfies>=2.0",
